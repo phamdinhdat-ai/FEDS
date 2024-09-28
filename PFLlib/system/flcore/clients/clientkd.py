@@ -22,7 +22,7 @@ import numpy as np
 import time
 import torch.nn.functional as F
 from flcore.clients.clientbase import Client
-from flcore.clients.helper_function import ContrastiveLoss
+from flcore.clients.helper_function import ContrastiveLoss, RKDLoss
 
 
 class clientKD(Client):
@@ -49,6 +49,7 @@ class clientKD(Client):
         self.KL = nn.KLDivLoss()
         self.MSE = nn.MSELoss()
         self.contrastive_loss = ContrastiveLoss()
+        self.kd_loss = RKDLoss()
 
         self.compressed_param = {}
         self.energy = None
@@ -82,14 +83,16 @@ class clientKD(Client):
 
                 CE_loss = self.loss(output, y)
                 CE_loss_g = self.loss(output_g, y)
+                ct_loss = self.contrastive_loss(rep, rep_g)
+                nt_loss = self.kd_loss(rep, rep_g, self.W_h(rep_g))
                 L_d = self.KL(F.log_softmax(output, dim=1), F.softmax(output_g, dim=1)) / (CE_loss + CE_loss_g)
                 L_d_g = self.KL(F.log_softmax(output_g, dim=1), F.softmax(output, dim=1)) / (CE_loss + CE_loss_g)
                 L_h = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
                 L_h_g = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
                 
-                ct_loss = self.contrastive_loss(rep, rep_g, y)
-                loss = CE_loss + L_d + L_h
-                loss_g = CE_loss_g + L_d_g + L_h_g + ct_loss
+                # ct_loss = self.contrastive_loss(rep, rep_g, y)
+                loss = 0.6*CE_loss + 0.2*ct_loss + 0.2*nt_loss
+                loss_g = CE_loss_g + L_d_g + L_h_g + ct_loss 
 
                 self.optimizer.zero_grad()
                 self.optimizer_g.zero_grad()
@@ -104,7 +107,8 @@ class clientKD(Client):
                 self.optimizer_g.step()
                 self.optimizer_W.step()
                 ct_loss_e += ct_loss
-            print(f"Epoch: {epoch} | CT_loss: {ct_loss_e/len(trainloader)}")
+                
+            # print(f"Epoch: {epoch} | CT_loss: {ct_loss_e/len(trainloader)}" )
         # self.model.cpu()
 
         self.decomposition()
@@ -152,10 +156,12 @@ class clientKD(Client):
 
                 CE_loss = self.loss(output, y)
                 CE_loss_g = self.loss(output_g, y)
+                ct_loss = self.contrastive_loss(rep, rep_g)
+                nt_loss = self.kd_loss(rep, rep_g, self.W_h(rep_g))
                 L_d = self.KL(F.log_softmax(output, dim=1), F.softmax(output_g, dim=1)) / (CE_loss + CE_loss_g)
                 L_h = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
                 
-                loss = CE_loss + L_d + L_h
+                loss = 0.4*CE_loss + 0.1*L_d + 0.1*L_h + 0.2*ct_loss + 0.2*nt_loss
                 train_num += y.shape[0]
                 losses += loss.item() * y.shape[0]
 

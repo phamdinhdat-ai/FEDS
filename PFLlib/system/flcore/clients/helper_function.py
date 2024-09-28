@@ -11,19 +11,18 @@ class ContrastiveLoss(nn.Module):
         super(ContrastiveLoss, self).__init__()
         self.temperature = temperature
         
-    def forward(self, z1, z2):
-        z1 = F.normalize(z1, dim=1)
-        z2 = F.normalize(z2, dim=1)
-        N = z1.size(0)
-        z = torch.cat((z1, z2), dim=0)
-        sim = torch.exp(torch.mm(z, z.t().contiguous()) / self.temperature)
-        mask = (torch.ones(2 * N, 2 * N) - torch.eye(2 * N, 2 * N, device=sim.device)).bool()
-        sim_matrix = sim_matrix.masked_select(mask).view(2 * N, -1)
-        pos_sim = torch.exp(torch.sum(z1 * z2, dim=1) / self.temperature)
-        pos_sim = torch.cat((pos_sim, pos_sim), dim=0)
-        loss = -torch.log(pos_sim / sim_matrix.sum(1)).mean()
+    def forward(self, x1, x2):
+        x1 = F.normalize(x1, dim=1)
+        x2 = F.normalize(x2, dim=1)
+        batch_size = x1.size(0)
+        out = torch.cat([x1, x2], dim=0)
+        sim_matrix = torch.exp(torch.mm(out, out.t().contiguous()) / self.temperature)
+        mask = (torch.ones_like(sim_matrix) - torch.eye(2 * batch_size, device=sim_matrix.device)).bool()
+        sim_matrix = sim_matrix.masked_select(mask).view(2 * batch_size, -1)
+        pos_sim = torch.exp(torch.sum(x1 * x2, dim=-1) / self.temperature)
+        pos_sim = torch.cat([pos_sim, pos_sim], dim=0)
+        loss = (-torch.log(pos_sim / sim_matrix.sum(dim=-1))).mean()
         return loss 
-    
 #relational knowledge distillation loss
 
 class RKDLoss(nn.Module):
@@ -54,22 +53,22 @@ class RKDLoss(nn.Module):
         
     
     
-#contrastiveloss
-import torch
-import torch.nn.functional as F
+# #contrastiveloss
+# import torch
+# import torch.nn.functional as F
 
-class ContrastiveLoss(torch.nn.Module):
+# class ContrastiveLoss(torch.nn.Module):
 
-    def __init__(self, margin=2.0):
-        super(ContrastiveLoss, self).__init__()
-        self.margin = margin
+#     def __init__(self, margin=2.0):
+#         super(ContrastiveLoss, self).__init__()
+#         self.margin = margin
 
-    def forward(self, output1, output2, label):
-        cosin_sim = F.cosine_similarity(output1, output2)
-        pos =  (1-label) * torch.pow(cosin_sim, 2)
-        neg = (label) * torch.pow(torch.clamp(self.margin - cosin_sim, min=0.0), 2)
-        loss_contrastive = torch.mean( pos + neg )
-        return loss_contrastive   
+#     def forward(self, output1, output2, label):
+#         cosin_sim = F.cosine_similarity(output1, output2)
+#         pos =  (1-label) * torch.pow(cosin_sim, 2)
+#         neg = (label) * torch.pow(torch.clamp(self.margin - cosin_sim, min=0.0), 2)
+#         loss_contrastive = torch.mean( pos + neg )
+#         return loss_contrastive   
         
         
         
