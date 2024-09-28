@@ -4,37 +4,54 @@ import torch.nn.functional as F
 
 
 
-# supervisecontrastive loss 
-class SupervisedContrastiveLoss(nn.Module):
-    def __init__(self, temperature=0.07):
-        super(SupervisedContrastiveLoss, self).__init__()
+# unsupervised contrastive loss
+
+class ContrastiveLoss(nn.Module):
+    def __init__(self, temperature=0.5):
+        super(ContrastiveLoss, self).__init__()
         self.temperature = temperature
         
-    def forward(self, features,  labels):
-        
-        
-        device  = features.device
-        batch_size = features.shape[0]
-        features = F.normalize(features, p=2, dim=1)
-        similarity_matrix = torch.matmul(features, features.T)
-        mask = torch.eye(batch_size, dtype=torch.bool).to(device)
-        labels_qual = labels == labels.T 
-        
-        positives_mask = labels_qual & ~mask
-        
-        negatives_mask = ~labels_qual
-        positives = torch.exp(similarity_matrix / self.temperature) * positives_mask.float()
-        positives = torch.sum(positives, dim=1)
-        
-        negatives = torch.exp(similarity_matrix / self.temperature) * negatives_mask.float()
-        negatives = torch.sum(negatives, dim=1)
-        
-        loss = -torch.log(positives / (positives + negatives))
-        
-        return loss.mean()
+    def forward(self, z1, z2):
+        z1 = F.normalize(z1, dim=1)
+        z2 = F.normalize(z2, dim=1)
+        N = z1.size(0)
+        z = torch.cat((z1, z2), dim=0)
+        sim = torch.exp(torch.mm(z, z.t().contiguous()) / self.temperature)
+        mask = (torch.ones(2 * N, 2 * N) - torch.eye(2 * N, 2 * N, device=sim.device)).bool()
+        sim_matrix = sim_matrix.masked_select(mask).view(2 * N, -1)
+        pos_sim = torch.exp(torch.sum(z1 * z2, dim=1) / self.temperature)
+        pos_sim = torch.cat((pos_sim, pos_sim), dim=0)
+        loss = -torch.log(pos_sim / sim_matrix.sum(1)).mean()
+        return loss 
     
-    
+#relational knowledge distillation loss
 
+class RKDLoss(nn.Module):
+    def __init__(self, t_1 = 0.1, t_2 = 0.01):
+        super(RKDLoss, self).__init__()
+        self.t_1 = t_1
+        self.t_2 = t_2
+                
+    
+    def forward(self, z1, z2, za):
+        
+        z1 = F.normalize(z1, dim=1)
+        z2 = F.normalize(z2, dim=1)
+        za = F.normalize(za, dim=1)
+        
+        N = z1.size(0)
+        sim_1  = torch.mm(z1, za.t().contiguous())
+        sim_2  = torch.mm(z2, za.t().contiguous())
+        
+        inputs1 = sim_1 / self.t_1
+        inputs2 = sim_2 / self.t_2
+        targets = (F.softmax(sim_1, dim=1) + F.softmax(sim_2, dim=1)) / 2
+        
+        js_div1 = F.kl_div(F.log_softmax(inputs1, dim=1), F.softmax(targets, dim=1), reduction='batchmean')
+        js_div2 = F.kl_div(F.log_softmax(inputs2, dim=1), F.softmax(targets, dim=1), reduction='batchmean')
+        
+        return (js_div1 + js_div2) / 2.0 
+        
     
     
 #contrastiveloss
@@ -56,4 +73,4 @@ class ContrastiveLoss(torch.nn.Module):
         
         
         
-        
+
