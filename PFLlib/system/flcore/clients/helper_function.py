@@ -23,7 +23,10 @@ class ContrastiveLoss(nn.Module):
         pos_sim = torch.cat([pos_sim, pos_sim], dim=0)
         loss = (-torch.log(pos_sim / sim_matrix.sum(dim=-1))).mean()
         return loss 
+<<<<<<< HEAD
     
+=======
+>>>>>>> 5919527da95fd3223fd7030b4a60fb3e19dba532
 #relational knowledge distillation loss
 
 class RKDLoss(nn.Module):
@@ -72,4 +75,9 @@ class RKDLoss(nn.Module):
 #         return loss_contrastive   
         
         
+<<<<<<< HEAD
         
+=======
+        
+
+>>>>>>> 5919527da95fd3223fd7030b4a60fb3e19dba532

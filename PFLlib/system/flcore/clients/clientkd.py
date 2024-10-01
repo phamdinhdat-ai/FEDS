@@ -6,9 +6,13 @@ import numpy as np
 import time
 import torch.nn.functional as F
 from flcore.clients.clientbase import Client
+<<<<<<< HEAD
 from flcore.clients.augment_sleep import augment_data
 from flcore.clients.helper_function import ContrastiveLoss, RKDLoss
 
+=======
+from flcore.clients.helper_function import ContrastiveLoss, RKDLoss
+>>>>>>> 5919527da95fd3223fd7030b4a60fb3e19dba532
 
 
 class clientKD(Client):
@@ -37,6 +41,8 @@ class clientKD(Client):
         
         self.KL = nn.KLDivLoss()
         self.MSE = nn.MSELoss()
+        self.contrastive_loss = ContrastiveLoss()
+        self.kd_loss = RKDLoss()
 
         self.compressed_param = {}
         self.energy = None
@@ -58,10 +64,14 @@ class clientKD(Client):
         
         
         for epoch in range(max_local_epochs):
+<<<<<<< HEAD
             loss_e = 0
             loss_ct_e  = 0 
             loss_rl_e = 0 
             loss_g_e = 0
+=======
+            ct_loss_e = 0
+>>>>>>> 5919527da95fd3223fd7030b4a60fb3e19dba532
             for i, (x, y) in enumerate(trainloader):
                 if type(x) == type([]):
                     x[0] = x[0].to(self.device)
@@ -116,15 +126,24 @@ class clientKD(Client):
                 
                 CE_loss = self.loss(output, y)
                 CE_loss_g = self.loss(output_g, y)
+                ct_loss = self.contrastive_loss(rep, rep_g)
+                nt_loss = self.kd_loss(rep, rep_g, self.W_h(rep_g))
                 L_d = self.KL(F.log_softmax(output, dim=1), F.softmax(output_g, dim=1)) / (CE_loss + CE_loss_g)
                 L_d_g = self.KL(F.log_softmax(output_g, dim=1), F.softmax(output, dim=1)) / (CE_loss + CE_loss_g)
                 L_h = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
                 L_h_g = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
+<<<<<<< HEAD
 
 
                 
                 loss = CE_loss + L_d + L_h 
                 loss_g = CE_loss_g + L_d_g + L_h_g
+=======
+                
+                # ct_loss = self.contrastive_loss(rep, rep_g, y)
+                loss = 0.6*CE_loss + 0.2*ct_loss + 0.2*nt_loss
+                loss_g = CE_loss_g + L_d_g + L_h_g + ct_loss 
+>>>>>>> 5919527da95fd3223fd7030b4a60fb3e19dba532
 
                 # loss = CE_loss + loss_ct + loss_rl
                 # loss_g = CE_loss_g + ct_global + rl_global
@@ -141,6 +160,7 @@ class clientKD(Client):
                 self.optimizer.step()
                 self.optimizer_g.step()
                 self.optimizer_W.step()
+<<<<<<< HEAD
                 loss_e += loss.item()
                 loss_g_e += loss_g.item()
                 # loss_ct_e += loss_ct.item()
@@ -148,6 +168,11 @@ class clientKD(Client):
             # print(f"Epoch: {epoch}|  Loss:  {round(loss_e/len(trainloader), 4)} |CT loss: {round(loss_ct_e/len(trainloader),4)}| RL loss: {round(loss_rl_e/len(trainloader),4)} ")
             print(f"Epoch: {epoch}|  Loss:  {round(loss_e/len(trainloader), 4)} |Global loss: {round(loss_g_e/len(trainloader), 4)}| Local CE loss: {round(CE_loss.item(), 4)}  | Global CE loss: {round(CE_loss_g.item(), 4)}")
             
+=======
+                ct_loss_e += ct_loss
+                
+            # print(f"Epoch: {epoch} | CT_loss: {ct_loss_e/len(trainloader)}" )
+>>>>>>> 5919527da95fd3223fd7030b4a60fb3e19dba532
         # self.model.cpu()
 
         self.decomposition()
@@ -239,10 +264,17 @@ class clientKD(Client):
                 
                 CE_loss = self.loss(output, y)
                 CE_loss_g = self.loss(output_g, y)
+                ct_loss = self.contrastive_loss(rep, rep_g)
+                nt_loss = self.kd_loss(rep, rep_g, self.W_h(rep_g))
                 L_d = self.KL(F.log_softmax(output, dim=1), F.softmax(output_g, dim=1)) / (CE_loss + CE_loss_g)
                 L_h = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
+<<<<<<< HEAD
 
                 loss = CE_loss   + L_d + L_h
+=======
+                
+                loss = 0.4*CE_loss + 0.1*L_d + 0.1*L_h + 0.2*ct_loss + 0.2*nt_loss
+>>>>>>> 5919527da95fd3223fd7030b4a60fb3e19dba532
                 train_num += y.shape[0]
                 losses += loss.item() * y.shape[0]
 
