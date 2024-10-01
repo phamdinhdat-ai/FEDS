@@ -64,6 +64,7 @@ from flcore.servers.serverdbe import FedDBE
 from flcore.servers.servercac import FedCAC
 from flcore.servers.serverda import PFL_DA
 from flcore.servers.serverlc import FedLC
+from flcore.servers.serverkdx import FedKDX
 
 from flcore.trainmodel.models import *
 
@@ -333,6 +334,12 @@ def run(args):
             args.model.fc = nn.Identity()
             args.model = BaseHeadSplit(args.model, args.head)
             server = FedKD(args, i)
+            
+        elif args.algorithm == "FedKDX":
+            args.head = copy.deepcopy(args.model.fc)
+            args.model.fc = nn.Identity()
+            args.model = BaseHeadSplit(args.model, args.head)
+            server = FedKDX(args, i)
 
         elif args.algorithm == "FedPCL":
             args.model.fc = nn.Identity()
