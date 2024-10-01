@@ -1,19 +1,3 @@
-# PFLlib: Personalized Federated Learning Algorithm Library
-# Copyright (C) 2021  Jianqing Zhang
-
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 import copy
 import torch
@@ -22,6 +6,9 @@ import numpy as np
 import time
 import torch.nn.functional as F
 from flcore.clients.clientbase import Client
+from flcore.clients.augment_sleep import augment_data
+from flcore.clients.helper_function import ContrastiveLoss, RKDLoss
+
 
 
 class clientKD(Client):
@@ -44,7 +31,10 @@ class clientKD(Client):
             optimizer=self.optimizer_W, 
             gamma=args.learning_rate_decay_gamma
         )
-
+        
+        self.contrastive_loss  = ContrastiveLoss()
+        self.rkd_loss = RKDLoss()
+        
         self.KL = nn.KLDivLoss()
         self.MSE = nn.MSELoss()
 
@@ -54,6 +44,9 @@ class clientKD(Client):
 
     def train(self):
         trainloader = self.load_train_data()
+        random_loader = copy.deepcopy(trainloader)
+        random_dataloader = iter(random_loader)
+        
         # self.model.to(self.device)
         self.model.train()
 
@@ -62,21 +55,65 @@ class clientKD(Client):
         max_local_epochs = self.local_epochs
         if self.train_slow:
             max_local_epochs = np.random.randint(1, max_local_epochs // 2)
-
+        
+        
         for epoch in range(max_local_epochs):
+            loss_e = 0
+            loss_ct_e  = 0 
+            loss_rl_e = 0 
+            loss_g_e = 0
             for i, (x, y) in enumerate(trainloader):
                 if type(x) == type([]):
                     x[0] = x[0].to(self.device)
                 else:
+                    x_ = x.clone().numpy()
+                    x_au = augment_data(x_)
+                    x_au = x_au.to(self.device, dtype = x.dtype)
                     x = x.to(self.device)
+                try: 
+                    random_x, _  = next(random_dataloader)
+                except:
+                    random_dataloader  =  iter(random_loader)
+                    random_x, _ = next(random_dataloader)
+                random_x = random_x.to(self.device)
+
                 y = y.to(self.device)
                 if self.train_slow:
                     time.sleep(0.1 * np.abs(np.random.rand()))
+                
+                # representative projection of local model
                 rep = self.model.base(x)
-                rep_g = self.global_model.base(x)
+                rep_au = self.model.base(x_au)
+                rep_rd = self.model.base(random_x)
+                # representative projection of global model
+                with torch.no_grad():
+                    rep_g = self.global_model.base(x)
+                    rep_au_g = self.global_model.base(x_au)
+                    rep_rd_g = self.global_model.base(random_x)
+                # local prediction
+                
                 output = self.model.head(rep)
+                # output_au = self.model.head(rep_au)
+                # output_rd = self.model.head(rep_rd)
+                # # global prediction 
+                # output_rd_g = self.global_model.head(rep_rd_g)
                 output_g = self.global_model.head(rep_g)
+                
+                
+                ### add new contrastive loss and relative loss
+                #contrastive loss 
+                # ct_local = self.contrastive_loss(rep, rep_au)
+                # ct_global = self.contrastive_loss(self.W_h(rep), rep_au_g)
 
+                # # relative loss 
+                # rl_local = self.rkd_loss(output, output_au, output_rd)
+                
+                # rl_global = self.rkd_loss(output, output_au, output_rd_g)
+                
+                # loss_ct = ct_local + ct_global
+                # loss_rl = rl_local + rl_global
+                
+                
                 CE_loss = self.loss(output, y)
                 CE_loss_g = self.loss(output_g, y)
                 L_d = self.KL(F.log_softmax(output, dim=1), F.softmax(output_g, dim=1)) / (CE_loss + CE_loss_g)
@@ -84,8 +121,13 @@ class clientKD(Client):
                 L_h = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
                 L_h_g = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
 
-                loss = CE_loss + L_d + L_h
+
+                
+                loss = CE_loss + L_d + L_h 
                 loss_g = CE_loss_g + L_d_g + L_h_g
+
+                # loss = CE_loss + loss_ct + loss_rl
+                # loss_g = CE_loss_g + ct_global + rl_global
 
                 self.optimizer.zero_grad()
                 self.optimizer_g.zero_grad()
@@ -99,7 +141,13 @@ class clientKD(Client):
                 self.optimizer.step()
                 self.optimizer_g.step()
                 self.optimizer_W.step()
-
+                loss_e += loss.item()
+                loss_g_e += loss_g.item()
+                # loss_ct_e += loss_ct.item()
+                # loss_rl_e += loss_rl.item()
+            # print(f"Epoch: {epoch}|  Loss:  {round(loss_e/len(trainloader), 4)} |CT loss: {round(loss_ct_e/len(trainloader),4)}| RL loss: {round(loss_rl_e/len(trainloader),4)} ")
+            print(f"Epoch: {epoch}|  Loss:  {round(loss_e/len(trainloader), 4)} |Global loss: {round(loss_g_e/len(trainloader), 4)}| Local CE loss: {round(CE_loss.item(), 4)}  | Global CE loss: {round(CE_loss_g.item(), 4)}")
+            
         # self.model.cpu()
 
         self.decomposition()
@@ -133,24 +181,68 @@ class clientKD(Client):
 
         train_num = 0
         losses = 0
+        # random_loader = iter(trainloader)
+        # random_dataloader = next(random_loader)
         with torch.no_grad():
             for x, y in trainloader:
                 if type(x) == type([]):
                     x[0] = x[0].to(self.device)
+                # else:
+                #     x = x.to(self.device)
                 else:
+                    # x_ = x.clone().numpy()
+                    # x_au = augment_data(x_)
+                    # x_au = x_au.to(self.device, dtype = x.dtype)
                     x = x.to(self.device)
+                # try: 
+                #     random_x, _  = next(random_dataloader)
+                # except:
+                #     random_dataloader  =  iter(random_loader)
+                #     random_x, _ = next(random_dataloader)
+                # random_x = random_x.to(self.device)
                 y = y.to(self.device)
+                # rep = self.model.base(x)
+                # rep_g = self.global_model.base(x)
+                # output = self.model.head(rep)
+                # output_g = self.global_model.head(rep_g)
+                # representative projection of local model
                 rep = self.model.base(x)
+                # rep_au = self.model.base(x_au)
+                # rep_rd = self.model.base(random_x)
+                # # representative projection of global model
+                # with torch.no_grad():
                 rep_g = self.global_model.base(x)
+                #     rep_au_g = self.global_model.base(x_au)
+                #     rep_rd_g = self.global_model.base(random_x)
+                # # local prediction
+                
                 output = self.model.head(rep)
+                # output_au = self.model.head(rep_au)
+                # output_rd = self.model.head(rep_rd)
+                # global prediction 
+                # output_rd_g = self.global_model.head(rep_rd_g)
                 output_g = self.global_model.head(rep_g)
+                
+                
+                ### add new contrastive loss and relative loss
+                #contrastive loss 
+                # ct_local = self.contrastive_loss(rep, rep_au)
+                # ct_global = self.contrastive_loss(self.W_h(rep), rep_au_g)
 
+                # # relative loss 
+                # rl_local = self.rkd_loss(output, output_au, output_rd)
+                
+                # rl_global = self.rkd_loss(output, output_au, output_rd_g)
+                
+                # loss_ct = ct_local + ct_global
+                # loss_rl = rl_local + rl_global
+                
                 CE_loss = self.loss(output, y)
                 CE_loss_g = self.loss(output_g, y)
                 L_d = self.KL(F.log_softmax(output, dim=1), F.softmax(output_g, dim=1)) / (CE_loss + CE_loss_g)
                 L_h = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
 
-                loss = CE_loss + L_d + L_h
+                loss = CE_loss   + L_d + L_h
                 train_num += y.shape[0]
                 losses += loss.item() * y.shape[0]
 

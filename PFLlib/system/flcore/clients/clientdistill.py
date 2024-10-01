@@ -21,6 +21,7 @@ import torch.nn as nn
 import numpy as np
 import time
 from flcore.clients.clientbase import Client
+# from flcore.clients.helper_function import softmax_with_temperature, kl_divergence_loss
 from collections import defaultdict
 
 
@@ -57,15 +58,20 @@ class clientDistill(Client):
                     time.sleep(0.1 * np.abs(np.random.rand()))
                 output = self.model(x)
                 loss = self.loss(output, y)
-
+                
+                
                 if self.global_logits != None:
                     logit_new = copy.deepcopy(output.detach())
                     for i, yy in enumerate(y):
                         y_c = yy.item()
                         if type(self.global_logits[y_c]) != type([]):
                             logit_new[i, :] = self.global_logits[y_c].data
+                            # print(logit_new.shape) # new 
+                    # y_t = softmax_with_temperature()
                     loss += self.loss(output, logit_new.softmax(dim=1)) * self.lamda
 
+                    
+                    
                 for i, yy in enumerate(y):
                     y_c = yy.item()
                     logits[y_c].append(output[i, :].detach().data)

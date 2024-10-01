@@ -18,6 +18,7 @@
 import torch
 import numpy as np
 import time
+# from flcore.clients.helper_function import kl_divergence_loss, softmax_with_temperature
 from flcore.clients.clientbase import Client
 
 
@@ -60,6 +61,7 @@ class clientGen(Client):
             max_local_epochs = np.random.randint(1, max_local_epochs // 2)
 
         for epoch in range(max_local_epochs):
+            kl_value = 0
             for i, (x, y) in enumerate(trainloader):
                 if type(x) == type([]):
                     x[0] = x[0].to(self.device)
@@ -70,18 +72,22 @@ class clientGen(Client):
                     time.sleep(0.1 * np.abs(np.random.rand()))
                 output = self.model(x)
                 loss = self.loss(output, y)
-                
                 labels = np.random.choice(self.qualified_labels, self.batch_size)
                 labels = torch.LongTensor(labels).to(self.device)
                 z = self.generative_model(labels)
-                loss += self.loss(self.model.head(z), labels)
+                y_s = self.model.head(z) # new
+                # s_probs = softmax_with_temperature(y_s)# new
+                # t_probs = softmax_with_temperature(output)# new
+                # kl_loss = kl_divergence_loss(s_probs=s_probs, t_probs=t_probs)# new
+                loss = loss +  self.loss(y_s, labels)   # new
 
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
-
+                # kl_value += kl_loss
         # self.model.cpu()
-
+            # print(f"Epoch: {epoch} | KL Divergence loss:  {kl_value/ len(trainloader)}")# new
+        
         if self.learning_rate_decay:
             self.learning_rate_scheduler.step()
 
@@ -120,7 +126,12 @@ class clientGen(Client):
                 labels = np.random.choice(self.qualified_labels, self.batch_size)
                 labels = torch.LongTensor(labels).to(self.device)
                 z = self.generative_model(labels)
-                loss += self.loss(self.model.head(z), labels)
+                y_s = self.model.head(z) # new
+                # s_probs = softmax_with_temperature(y_s)# new
+                # t_probs = softmax_with_temperature(output)# new
+                
+                # kl_loss = kl_divergence_loss(s_probs=s_probs, t_probs=t_probs)# new
+                loss = loss +  self.loss(y_s, labels)   # new kl_loss
                 
                 train_num += y.shape[0]
                 losses += loss.item() * y.shape[0]

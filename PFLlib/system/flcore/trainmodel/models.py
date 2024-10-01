@@ -53,11 +53,11 @@ class HARCNN(nn.Module):
             nn.MaxPool2d(kernel_size=pool_kernel_size, stride=2)
         )
         self.fc = nn.Sequential(
-            nn.Linear(dim_hidden, 1024),
+            nn.Linear(dim_hidden, 256),
             nn.ReLU(), 
-            nn.Linear(1024, 512),
+            nn.Linear(256, 128),
             nn.ReLU(), 
-            nn.Linear(512, num_classes)
+            nn.Linear(128, num_classes)
         )
 
     def forward(self, x):

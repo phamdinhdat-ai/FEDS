@@ -50,6 +50,8 @@ class Server(object):
         self.save_folder_name = args.save_folder_name
         self.top_cnt = 100
         self.auto_break = args.auto_break
+        self.model_name = 'harcnn'
+        
 
         self.clients = []
         self.selected_clients = []
@@ -171,18 +173,22 @@ class Server(object):
         model_path = os.path.join("models", self.dataset)
         if not os.path.exists(model_path):
             os.makedirs(model_path)
-        model_path = os.path.join(model_path, self.algorithm + "_server" + ".pt")
+        model_path = os.path.join(model_path, str(self.num_clients) + "_"  + self.model_name + "_"  + "_" +  self.algorithm + "_server" + ".pt")
         torch.save(self.global_model, model_path)
 
     def load_model(self):
         model_path = os.path.join("models", self.dataset)
-        model_path = os.path.join(model_path, self.algorithm + "_server" + ".pt")
+        # model_path = os.path.join(model_path, self.algorithm + "_server" + ".pt")
+        model_path = os.path.join(model_path, str(self.num_clients) + "_"  + self.model_name + "_"  + "_" +  self.algorithm + "_server" + ".pt")
+        
         assert (os.path.exists(model_path))
         self.global_model = torch.load(model_path)
 
     def model_exists(self):
         model_path = os.path.join("models", self.dataset)
-        model_path = os.path.join(model_path, self.algorithm + "_server" + ".pt")
+        # model_path = os.path.join(model_path, self.algorithm + "_server" + ".pt")
+        model_path = os.path.join(model_path, str(self.num_clients) + "_"  + self.model_name + "_"  + "_" +  self.algorithm + "_server" + ".pt")
+        
         return os.path.exists(model_path)
         
     def save_results(self):
@@ -192,7 +198,7 @@ class Server(object):
             os.makedirs(result_path)
 
         if (len(self.rs_test_acc)):
-            algo = algo + "_" + self.goal + "_" + str(self.times)
+            algo = algo + "_" + self.goal + "_" + self.model_name + "_" +  str(self.num_clients) + "_"   + str(self.times)
             file_path = result_path + "{}.h5".format(algo)
             print("File path: " + file_path)
 
