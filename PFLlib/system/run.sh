@@ -46,7 +46,7 @@ python main.py -data SLEEP -m harcnn -algo FedFomo -gr 2000 -did 0 -nc 12 -lbs 6
 
 python main.py -data SLEEP -m harcnn -algo MOON -gr 2000 -did 0 -nc 12 -lbs 64 -nb 12 -jr 0.4 -ls 5
 
-python main.py -data SLEEP -m harcnn -algo FedGen -gr 2000 -did 0 -nc 12 -lbs 64 -nb 12 -jr 0.4 -ls 5
+python main.py -data SLEEP -m harcnn -algo FedGen -gr 2000 -did 0 -nc 12 -lbs 64 -nb 12 -jr 0.4 -ls 5 -dev cpu # test on local
 
 python main.py -data SLEEP -m harcnn -algo FedDistill -gr 2000 -did 0 -nc 12 -lbs 64 -nb 12 -jr 0.4 -ls 5
 
