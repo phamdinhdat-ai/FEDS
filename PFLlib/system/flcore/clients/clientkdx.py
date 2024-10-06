@@ -69,8 +69,7 @@ class clientKDX(Client):
             loss_rl_e = 0 
             loss_g_e = 0
 
-            loss_d_e = 0 
-            loss_dg_e = 0
+
             for i, (x, y) in enumerate(trainloader):
                 if type(x) == type([]):
                     x[0] = x[0].to(self.device)
@@ -99,10 +98,10 @@ class clientKDX(Client):
                 rep_au = self.model.base(x_au)
                 rep_rd = self.model.base(random_x)
                 # representative projection of global model
-                
-                rep_g = self.global_model.base(x)
-                rep_au_g = self.global_model.base(x_au)
-                rep_rd_g = self.global_model.base(random_x)
+                with torch.no_grad():
+                    rep_g = self.global_model.base(x)
+                    rep_au_g = self.global_model.base(x_au)
+                    rep_rd_g = self.global_model.base(random_x)
                 # local prediction
                 
                 output = self.model.head(rep)
@@ -123,12 +122,12 @@ class clientKDX(Client):
                 ct_global = self.contrastive_loss(zj, zrd)
 
                 # relative loss 
-                rl_local = self.rkd_loss(output, output_au, output_rd)
+                rl_local = self.rkd_loss(rep, rep_au, rep_rd)
                 
-                rl_global = self.rkd_loss(output, output_au, output_rd_g)
+                rl_global = self.rkd_loss(rep, rep_au_g,  rep_rd_g)
                 
-                loss_ct = ct_local + 0.2*ct_global
-                loss_rl = rl_local + 0.2*rl_global
+                loss_ct = ct_local + ct_global
+                loss_rl = rl_local + rl_global
                 
                 
                 
@@ -137,7 +136,7 @@ class clientKDX(Client):
                 CE_loss_g = self.loss(output_g, y)
                 
                 L_d = self.KL(F.log_softmax(output, dim=1), F.softmax(output_g, dim=1)) / (CE_loss + CE_loss_g)
-                L_d_g = self.KL(F.log_softmax(output_g, dim=1), F.softmax(output, dim=1)) / (CE_loss + CE_loss_g)
+                # L_d_g = self.KL(F.log_softmax(output_g, dim=1), F.softmax(output, dim=1)) / (CE_loss + CE_loss_g)
                 # L_h = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
                 # L_h_g = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
 
@@ -147,27 +146,23 @@ class clientKDX(Client):
                 # loss_g = CE_loss_g + L_d_g + L_h_g
 
                 loss = CE_loss + 0.1 * loss_ct + 0.1*loss_rl + L_d
-                loss_g = CE_loss_g + 0.1 * loss_ct + 0.1*loss_rl  + L_d_g
+                loss_g = CE_loss_g + ct_global + rl_global
 
-                self.optimizer.zero_grad()
-                self.optimizer_g.zero_grad()
-                self.optimizer_W.zero_grad()
+                
                 loss.backward(retain_graph=True)
-                loss_g.backward()
+                # loss_g.backward()
                 # prevent divergency on specifical tasks
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 10)
                 torch.nn.utils.clip_grad_norm_(self.global_model.parameters(), 10)
                 torch.nn.utils.clip_grad_norm_(self.g_w.parameters(), 10)
                 self.optimizer.step()
-                self.optimizer_g.step()
+                # self.optimizer_g.step()
                 self.optimizer_W.step()
                 loss_e += loss.item()
                 loss_g_e += loss_g.item()
                 loss_ct_e += loss_ct.item()
                 loss_rl_e += loss_rl.item()
-                loss_d_e += L_d.item()
-                loss_dg_e += L_d_g.item()
-            print(f"Epoch: {epoch}|  CT loss: {round(loss_ct_e/len(trainloader),4)}| RL loss: {round(loss_rl_e/len(trainloader),4)} | D Loss: {round(loss_d_e/len(trainloader),4)} | D_G Loss: {round(loss_dg_e/len(trainloader),4)}")
+            print(f"Epoch: {epoch}|  CT loss: {round(loss_ct_e/len(trainloader),4)}| RL loss: {round(loss_rl_e/len(trainloader),4)} ")
             print(f"Epoch: {epoch}|  Loss:  {round(loss_e/len(trainloader), 4)} |Global loss: {round(loss_g_e/len(trainloader), 4)}| Local CE loss: {round(CE_loss.item(), 4)}  | Global CE loss: {round(CE_loss_g.item(), 4)}")
             
         # self.model.cpu()
@@ -263,21 +258,21 @@ class clientKDX(Client):
                 ct_global = self.contrastive_loss(zj, zrd)
 
                 # # relative loss 
-                rl_local = self.rkd_loss(output, output_au, output_rd)
+                rl_local = self.rkd_loss(rep, rep_au, rep_rd)
                 
-                rl_global = self.rkd_loss(output, output_au, output_rd_g)
+                # rl_global = self.rkd_loss(rep, rep_au_g,  rep_rd_g)
                 
                 loss_ct = ct_local + ct_global
-                loss_rl = rl_local + rl_global
+                loss_rl = rl_local 
                 
                 CE_loss = self.loss(output, y)
                 CE_loss_g = self.loss(output_g, y)
                 # ct_loss = self.contrastive_loss(rep, rep_g)
                 # nt_loss = self.kd_loss(rep, rep_g, self.W_h(rep_g))
-                # L_d = self.KL(F.log_softmax(output, dim=1), F.softmax(output_g, dim=1)) / (CE_loss + CE_loss_g)
+                L_d = self.KL(F.log_softmax(output, dim=1), F.softmax(output_g, dim=1)) / (CE_loss + CE_loss_g)
                 # L_h = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
 
-                loss = CE_loss     + loss_ct + loss_rl
+                loss = CE_loss     + 0.1 * loss_ct + 0.1*loss_rl + L_d
                 train_num += y.shape[0]
                 losses += loss.item() * y.shape[0]
 
