@@ -18,10 +18,10 @@
 
 # python main.py -data SLEEP -m transformer -algo FedKD -gr 2000 -did 0 -nc 15 -lbs 64 -nb 12  -jr 0.4 -ls 5 -ld True -dev cuda
 
-python main.py -data SLEEP -m transformer -algo FedKDX -gr 2000 -did 0 -nc 15 -lbs 64 -nb 12  -jr 0.4 -ls 5 -ld True -dev cuda
+# python main.py -data SLEEP -m transformer -algo FedKDX -gr 2000 -did 0 -nc 15 -lbs 64 -nb 12  -jr 0.4 -ls 5 -ld True -dev cuda
 
 
-python main.py -data SLEEP -m harcnn -algo FedKDX -gr 2000 -did 0 -nc 15 -lbs 64 -nb 12 -jr 0.4 -ls 5 -ld True -dev cuda
+python main.py -data SLEEP -m harcnn -algo FedKDX -gr 2000 -did 0 -nc 15 -lbs 64 -nb 12 -jr 0.4 -ls 5 -ld True -dev cuda  -lr 0.01  -mlr 0.01 -Ts 0.9 
 
 
 
@@ -31,12 +31,12 @@ python main.py -data SLEEP -m harcnn -algo FedKDX -gr 2000 -did 0 -nc 15 -lbs 64
 # python main.py -data HAR -m harcnn -algo FedKD -gr 2000 -did 0 -nc 30 -lbs 64 -nb 6 -jr 0.4 -ls 5 -ld True  -dev cuda
 
 
-# python main.py -data HAR -m transformer -algo FedKD -gr 2000 -did 0 -nc 30 -lbs 64 -nb 6  -jr 0.4 -ls 5 -ld True -dev cuda
+# # python main.py -data HAR -m transformer -algo FedKD -gr 2000 -did 0 -nc 30 -lbs 64 -nb 6  -jr 0.4 -ls 5 -ld True -dev cuda
 
-python main.py -data HAR -m transformer -algo FedKDX -gr 2000 -did 0 -nc 15 -lbs 64 -nb 12  -jr 0.4 -ls 5 -ld True -dev cuda
+# python main.py -data HAR -m transformer -algo FedKDX -gr 2000 -did 0 -nc 15 -lbs 64 -nb 12  -jr 0.4 -ls 5 -ld True -dev cuda
 
 
-python main.py -data HAR -m harcnn -algo FedKDX -gr 2000 -did 0 -nc 15 -lbs 64 -nb 12 -jr 0.4 -ls 5 -ld True -dev cuda
+# python main.py -data HAR -m harcnn -algo FedKDX -gr 2000 -did 0 -nc 15 -lbs 64 -nb 12 -jr 0.4 -ls 5 -ld True -dev cuda
 
 
 
