@@ -24,6 +24,9 @@ from torch.utils.data import DataLoader
 from sklearn.preprocessing import label_binarize
 from sklearn import metrics
 from utils.data_utils import read_client_data
+from sklearn.metrics import accuracy_score, f1_score, recall_score
+
+
 
 
 class Client(object):
@@ -131,9 +134,15 @@ class Client(object):
         y_prob = np.concatenate(y_prob, axis=0)
         y_true = np.concatenate(y_true, axis=0)
 
+        
         auc = metrics.roc_auc_score(y_true, y_prob, average='micro')
         
-        return test_acc, test_num, auc
+        f1_s = f1_score(np.argmax(y_true, axis=-1), np.argmax(y_prob,axis=-1), average='macro')
+        rc_s = recall_score(np.argmax(y_true, axis=-1), np.argmax(y_prob,axis=-1), average='macro')
+        # print("f1_score: ", f1_s)
+        # print("recall: ", rc_s)
+        
+        return test_acc, test_num, auc, f1_s, rc_s
 
     def train_metrics(self):
         trainloader = self.load_train_data()
@@ -143,7 +152,7 @@ class Client(object):
 
         train_num = 0
         losses = 0
-        with torch.no_grad():
+        with torch.no_grad(): 
             for x, y in trainloader:
                 if type(x) == type([]):
                     x[0] = x[0].to(self.device)
