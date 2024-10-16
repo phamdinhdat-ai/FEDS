@@ -3,6 +3,7 @@ import copy
 import torch
 import torch.nn as nn
 import numpy as np
+from scipy.sparse.linalg import svds
 import time
 import torch.nn.functional as F
 from flcore.clients.clientbase import Client
@@ -210,6 +211,7 @@ class clientKDX(Client):
                 # else:
                 #     x = x.to(self.device)
                 else:
+                    # print(x.shape)
                     x_ = x.clone().numpy()
                     x_au = augment_data(x_)
                     x_au = x_au.to(self.device, dtype = x.dtype)
@@ -288,6 +290,49 @@ class clientKDX(Client):
             # refer to https://github.com/wuch15/FedKD/blob/main/run.py#L187
             if param_cpu.shape[0]>1 and len(param_cpu.shape)>1 and 'embeddings' not in name:
                 u, sigma, v = np.linalg.svd(param_cpu, full_matrices=False)
+                # u_s, sigma_s, v_s = svds(param_cpu, k=4)
+                
+                # support high-dimensional CNN param
+                if len(u.shape)==4:
+                    u = np.transpose(u, (2, 3, 0, 1))
+                    sigma = np.transpose(sigma, (2, 0, 1))
+                    v = np.transpose(v, (2, 3, 0, 1))
+                    # print("U: ", u.shape)
+                    # print("Sigma: ", sigma.shape)
+                    # print("V: ", v.shape)
+                    # print(param_cpu.shape)
+                    
+                threshold=0
+                if np.sum(np.square(sigma))==0:
+                    compressed_param_cpu=param_cpu
+                else:
+                    for singular_value_num in range(len(sigma)):
+                        if np.sum(np.square(sigma[:singular_value_num]))>self.energy*np.sum(np.square(sigma)):
+                            threshold=singular_value_num
+                            break
+                    u=u[:, :threshold]
+                    sigma=sigma[:threshold]
+                    v=v[:threshold, :]
+                    # print(threshold)
+                    # support high-dimensional CNN param
+                    if len(u.shape)==4:
+                        u = np.transpose(u, (2, 3, 0, 1))
+                        sigma = np.transpose(sigma, (1, 2, 0))
+                        v = np.transpose(v, (2, 3, 0, 1))
+                    compressed_param_cpu=[u,sigma,v]
+            elif 'embeddings' not in name:
+                compressed_param_cpu=param_cpu
+
+            self.compressed_param[name] = compressed_param_cpu
+            
+            
+    def decomposition_v2(self):
+        self.compressed_param = {}
+        for name, param in self.global_model.named_parameters():
+            param_cpu = param.detach().cpu().numpy()
+            # refer to https://github.com/wuch15/FedKD/blob/main/run.py#L187
+            if param_cpu.shape[0]>1 and len(param_cpu.shape)>1 and 'embeddings' not in name:
+                u, sigma, v = np.linalg.svd(param_cpu, full_matrices=False)
                 # support high-dimensional CNN param
                 if len(u.shape)==4:
                     u = np.transpose(u, (2, 3, 0, 1))
@@ -313,4 +358,4 @@ class clientKDX(Client):
             elif 'embeddings' not in name:
                 compressed_param_cpu=param_cpu
 
-            self.compressed_param[name] = compressed_param_cpu
+            self.compressed_param[name] = compressed_param_cpu  

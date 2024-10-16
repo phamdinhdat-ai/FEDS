@@ -47,6 +47,11 @@ class clientKD(Client):
             max_local_epochs = np.random.randint(1, max_local_epochs // 2)
 
         for epoch in range(max_local_epochs):
+            loss_e = 0 
+            loss_g_e = 0 
+            loss_h  = 0 
+            loss_g_h = 0
+            
             for i, (x, y) in enumerate(trainloader):
                 if type(x) == type([]):
                     x[0] = x[0].to(self.device)
@@ -62,6 +67,7 @@ class clientKD(Client):
 
                 CE_loss = self.loss(output, y)
                 CE_loss_g = self.loss(output_g, y)
+                
                 L_d = self.KL(F.log_softmax(output, dim=1), F.softmax(output_g, dim=1)) / (CE_loss + CE_loss_g)
                 L_d_g = self.KL(F.log_softmax(output_g, dim=1), F.softmax(output, dim=1)) / (CE_loss + CE_loss_g)
                 L_h = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
@@ -82,7 +88,15 @@ class clientKD(Client):
                 self.optimizer.step()
                 self.optimizer_g.step()
                 self.optimizer_W.step()
-
+                loss_e += loss.item()
+                loss_g_e += loss_g.item()
+                loss_h +=  L_h.item()
+                loss_g_h += L_h_g.item()
+                
+                
+                
+            print(f"Epoch: {epoch}|  Loss:  {round(loss_e/len(trainloader), 4)} |Global loss: {round(loss_g_e/len(trainloader), 4)}| Local H loss: {round(loss_h/len(trainloader), 4)}  | Global H loss: {round(loss_g_h/len(trainloader), 4)}")
+            
         # self.model.cpu()
 
         self.decomposition()

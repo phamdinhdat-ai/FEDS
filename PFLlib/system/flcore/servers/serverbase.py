@@ -291,8 +291,8 @@ class Server(object):
 
         test_acc = sum(stats[2])*1.0 / sum(stats[1])
         test_auc = sum(stats[3])*1.0 / sum(stats[1])
-        test_f1  = sum(stats[4]) * 1.0 / sum(stats[1])
-        test_rc  = sum(stats[5]) * 1.0 / sum(stats[1])
+        test_f1  = sum(stats[4]) * 1.0 / self.num_clients
+        test_rc  = sum(stats[5]) * 1.0 / self.num_clients
         
         train_loss = sum(stats_train[2])*1.0 / sum(stats_train[1])
         accs = [a / n for a, n in zip(stats[2], stats[1])]
