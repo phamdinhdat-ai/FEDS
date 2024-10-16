@@ -22,6 +22,8 @@ import h5py
 import copy
 import time
 import random
+import datetime
+import pickle
 from utils.data_utils import read_client_data
 from utils.dlg import DLG
 
@@ -64,6 +66,8 @@ class Server(object):
 
         self.rs_test_acc = []
         self.rs_test_auc = []
+        self.rs_test_f1_score = []
+        self.rs_test_recall = []
         self.rs_train_loss = []
 
         self.times = times
@@ -200,14 +204,25 @@ class Server(object):
             os.makedirs(result_path)
 
         if (len(self.rs_test_acc)):
-            algo = algo + "_" + self.goal + "_" + str(self.times)
+            algo = algo + "_" + self.goal + "_" + str(self.times) 
             file_path = result_path + "{}.h5".format(algo)
+            other_file =  result_path + algo + "_" + str(self.args.T_start) + "_" + str(self.batch_size) + "_" + str(self.global_rounds) + "_" + str(self.num_clients) + "_" + time.strftime('%Y_%m_%d_%H_%M') +".pkl"
             print("File path: " + file_path)
 
             with h5py.File(file_path, 'w') as hf:
                 hf.create_dataset('rs_test_acc', data=self.rs_test_acc)
                 hf.create_dataset('rs_test_auc', data=self.rs_test_auc)
                 hf.create_dataset('rs_train_loss', data=self.rs_train_loss)
+            with open(other_file, 'wb') as f:
+                dict_rs = {
+                    "rs_train_loss" : self.rs_train_loss,
+                    "rs_test_acc" : self.rs_test_acc, 
+                    "rs_test_auc" : self.rs_test_auc, 
+                    "rs_test_f1" : self.rs_test_f1_score, 
+                    "rs_test_rc" : self.rs_test_recall
+                }
+                pickle.dump(dict_rs, f)
+            
 
     def save_item(self, item, item_name):
         if not os.path.exists(self.save_folder_name):
@@ -226,22 +241,33 @@ class Server(object):
         tot_correct = []
         tot_auc = []
         accs = []
+        f1_values = []
+        rc_values = []
+        
         for c in self.clients:
-            ct, ns, auc = c.test_metrics()
+            ct, ns, auc, f1_s, rc_s = c.test_metrics()
             tot_correct.append(ct*1.0)
-            tot_auc.append(round(auc*ns, 1))
+            tot_auc.append(round(auc*ns, 3))
             num_samples.append(ns)
-            accs.append(round(ct*1.0 / ns, 1))
+            accs.append(round(ct*1.0 / ns, 3))
+            f1_values.append(round(f1_s, 3))
+            rc_values.append(round(rc_s, 3))
+            
+            
             
 
         ids = [c.id for c in self.clients]
         print("Client ID: ", ids)
         print("Accuracy in each clients: ", accs)
         print("AUC in each clients: ", tot_auc)
+        print("F1 Score: ", f1_values)
+        print("Recall Score: ", rc_values)
         print("Number of sample in client: ", num_samples)
+        
+        
     
         
-        return ids, num_samples, tot_correct, tot_auc
+        return ids, num_samples, tot_correct, tot_auc, f1_values, rc_values
 
     def train_metrics(self):
         if self.eval_new_clients and self.num_new_clients > 0:
@@ -265,9 +291,15 @@ class Server(object):
 
         test_acc = sum(stats[2])*1.0 / sum(stats[1])
         test_auc = sum(stats[3])*1.0 / sum(stats[1])
+        test_f1  = sum(stats[4]) * 1.0 / sum(stats[1])
+        test_rc  = sum(stats[5]) * 1.0 / sum(stats[1])
+        
         train_loss = sum(stats_train[2])*1.0 / sum(stats_train[1])
         accs = [a / n for a, n in zip(stats[2], stats[1])]
         aucs = [a / n for a, n in zip(stats[3], stats[1])]
+        f1s  = [a / n for a, n in zip(stats[4], stats[1])]
+        rcs  = [a / n for a, n in zip(stats[5], stats[1])]
+        
         
         if acc == None:
             self.rs_test_acc.append(test_acc)
@@ -278,13 +310,27 @@ class Server(object):
             self.rs_train_loss.append(train_loss)
         else:
             loss.append(train_loss)
+            
+        self.rs_test_f1_score.append(test_f1)
+        self.rs_test_recall.append(test_rc)
+        self.rs_test_auc.append(test_auc)
+        
+        
 
         print("Averaged Train Loss: {:.4f}".format(train_loss))
         print("Averaged Test Accurancy: {:.4f}".format(test_acc))
         print("Averaged Test AUC: {:.4f}".format(test_auc))
+        print("Averaged Test F1_score: {:.4f}".format(test_f1))
+        print("Averaged Test Recal score: {:.4f}".format(test_rc))
+        
+        
         # self.print_(test_acc, train_acc, train_loss)
         print("Std Test Accurancy: {:.4f}".format(np.std(accs)))
         print("Std Test AUC: {:.4f}".format(np.std(aucs)))
+        print("Std Test F1: {:.4f}".format(np.std(f1s)))
+        
+        print("Std Test Recall: {:.4f}".format(np.std(rcs)))
+        
 
     def print_(self, test_acc, test_auc, train_loss):
         print("Average Test Accurancy: {:.4f}".format(test_acc))

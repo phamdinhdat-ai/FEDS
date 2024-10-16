@@ -30,18 +30,48 @@ def augment_data(data):
     data = data.reshape(b, s, d)
     data_aug = np.array([]) 
     for X in data: 
-        x = X[:, 0]
-        y = X[:, 1]
-        z = X[:, 2]
-        method = random.choice(augments)
-        X_aug = method(samples=x, sample_rate=8000)
-        Y_aug = method(samples=y, sample_rate=8000)
-        Z_aug = method(samples=z, sample_rate=8000)
-        aug_data = np.transpose(np.array([X_aug, Y_aug, Z_aug]))
+        dim_features  = X.shape[-1]
+        stack_dim = []
+        for dim in range(dim_features):
+            x = X[:, dim]
+            method = random.choice(augments)
+            X_aug = method(samples=x, sample_rate=8000)
+            # Y_aug = method(samples=y, sample_rate=8000)
+            # Z_aug = method(samples=z, sample_rate=8000)
+            stack_dim.append(X_aug)
+        aug_data = np.transpose(np.array(stack_dim))
         
         if data_aug.shape[0] == 0:
-            data_aug = np.expand_dims( np.transpose(np.array([X_aug, Y_aug, Z_aug])),  axis=0)
+            data_aug = np.expand_dims( np.transpose(np.array(stack_dim)),  axis=0)
             
         else:
-            data_aug = np.concatenate([data_aug,np.expand_dims( np.transpose(np.array([X_aug, Y_aug, Z_aug])),  axis=0)], axis = 0)
+            data_aug = np.concatenate([data_aug,np.expand_dims( np.transpose(np.array(stack_dim)),  axis=0)], axis = 0)
     return torch.tensor(data_aug.reshape(b, d, 1, s), dtype = torch.float64)
+
+
+
+
+
+# def augment_data(data):
+    
+#     b, d , _ , s = data.shape
+#     data = data.reshape(b, s, d)
+#     data_aug = np.array([]) 
+#     for X in data: 
+#         dim_features  = X.shape[-1]
+#         stack_dim = []
+#         for dim in range(dim_features):
+#             x = X[:, dim]
+#             method = random.choice(augments)
+#             X_aug = method(samples=x, sample_rate=8000)
+#             # Y_aug = method(samples=y, sample_rate=8000)
+#             # Z_aug = method(samples=z, sample_rate=8000)
+#             stack_dim.append(X_aug)
+#         aug_data = np.transpose(np.array(stack_dim))
+        
+#         if data_aug.shape[0] == 0:
+#             data_aug = np.expand_dims( np.transpose(np.array(stack_dim)),  axis=0)
+            
+#         else:
+#             data_aug = np.concatenate([data_aug,np.expand_dims( np.transpose(np.array(stack_dim)),  axis=0)], axis = 0)
+#     return torch.tensor(data_aug.reshape(b, d, 1, s), dtype = torch.float64)
