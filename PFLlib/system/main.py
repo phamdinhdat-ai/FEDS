@@ -198,6 +198,15 @@ def run(args):
                 
                 args.model = HARCNN(3, dim_hidden=1472, num_classes=args.num_classes, conv_kernel_size=(1, 3)).to(args.device)
                 print("total Parameters: ", sum([p.numel() for p in args.model.parameters()]))
+        elif model_str == 'harcnnbn':
+            if args.dataset == "HAR":
+                args.model = HARCNNBN(9, dim_hidden=3712, num_classes=args.num_classes, conv_kernel_size=(1, 9), 
+                                    pool_kernel_size=(1, 2)).to(args.device)  
+                print("total Parameters: ", sum([p.numel() for p in args.model.parameters()]))
+                
+            if args.dataset  == "SLEEP":
+                args.model = HARCNNBN(3, dim_hidden=1472, num_classes=args.num_classes, conv_kernel_size=(1, 3)).to(args.device)
+                print("total Parameters: ", sum([p.numel() for p in args.model.parameters()]))
                 
         elif model_str == "transformer":
             if args.dataset == "SLEEP":

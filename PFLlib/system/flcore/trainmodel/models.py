@@ -67,7 +67,71 @@ class HARCNN(nn.Module):
         out = self.fc(out)
         return out
 
+class HARCNNBN(nn.Module):
+    def __init__(self, in_channels=9, dim_hidden=64*26, num_classes=6, conv_kernel_size=(1, 9), pool_kernel_size=(1, 2)):
+        super().__init__()
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(in_channels, 32, kernel_size=conv_kernel_size),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=pool_kernel_size, stride=2)
+        )
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(32, 64, kernel_size=conv_kernel_size),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=pool_kernel_size, stride=2)
+        )
+        self.fc = nn.Sequential(
+            nn.Linear(dim_hidden, 256),
+            nn.ReLU(), 
+            nn.Linear(256, 128),
+            nn.ReLU(), 
+            nn.Linear(128, num_classes)
+        )
 
+    def forward(self, x):
+        out = self.conv1(x)
+        out = self.conv2(out)
+        out = torch.flatten(out, 1)
+        out = self.fc(out)
+        return out
+class SleepBN(nn.Module):
+    
+    def __init__(self, in_channels=9, dim_hidden=64*26, num_classes=6, conv_kernel_size=(1, 9), pool_kernel_size=(1, 2)):
+        super(SleepBN, self).__init__()
+        self.in_channels = in_channels
+        self.dim_hidden = dim_hidden
+        self.num_classes = num_classes
+        self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=conv_kernel_size)
+        self.bn1 = nn.BatchNorm2d(32)
+        self.relu1 = nn.ReLU()
+        self.maxpool1 = nn.MaxPool2d(kernel_size=pool_kernel_size, stride=2)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=conv_kernel_size)
+        self.bn2  = nn.BatchNorm2d(64)
+        self.relu2 = nn.ReLU()
+        self.maxpool2 = nn.MaxPool2d(kernel_size=pool_kernel_size, stride=2)
+        self.fc = nn.Sequential(
+            nn.Linear(dim_hidden, 256),
+            nn.ReLU(), 
+            nn.Linear(256, 128),
+            nn.ReLU(), 
+            nn.Linear(128, num_classes)
+        )
+    def forward(self,x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu1(x)
+        x = self.bn1(x)
+        x = self.maxpool1(x)
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.relu2(x)
+        x = self.maxpool2(x)
+        out = torch.flatten(out, 1)
+        out = self.fc(x)
+        return out
+        
 class Digit5CNN(nn.Module):
     def __init__(self):
         super(Digit5CNN, self).__init__()
