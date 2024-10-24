@@ -1,19 +1,3 @@
-# PFLlib: Personalized Federated Learning Algorithm Library
-# Copyright (C) 2021  Jianqing Zhang
-
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 #!/usr/bin/env python
 import copy
@@ -198,16 +182,26 @@ def run(args):
                 
                 args.model = HARCNN(3, dim_hidden=1472, num_classes=args.num_classes, conv_kernel_size=(1, 3)).to(args.device)
                 print("total Parameters: ", sum([p.numel() for p in args.model.parameters()]))
+                
+            elif args.dataset  == "PAMAP2":
+                args.model = HARCNNBN(9, dim_hidden=3712, num_classes=args.num_classes, conv_kernel_size=(1, 9)).to(args.device)
+                print("total Parameters: ", sum([p.numel() for p in args.model.parameters()]))
+            
         elif model_str == 'harcnnbn':
             if args.dataset == "HAR":
                 args.model = HARCNNBN(9, dim_hidden=1664, num_classes=args.num_classes, conv_kernel_size=(1, 9), 
                                     pool_kernel_size=(1, 2)).to(args.device)  
                 print("total Parameters: ", sum([p.numel() for p in args.model.parameters()]))
                 
-            if args.dataset  == "SLEEP":
+            elif args.dataset  == "SLEEP":
                 args.model = HARCNNBN(3, dim_hidden=1472, num_classes=args.num_classes, conv_kernel_size=(1, 3)).to(args.device)
                 print("total Parameters: ", sum([p.numel() for p in args.model.parameters()]))
-                
+            
+            elif args.dataset  == "PAMAP2":
+                args.model = HARCNNBN(9, dim_hidden=3712, num_classes=args.num_classes, conv_kernel_size=(1, 9)).to(args.device)
+                print("total Parameters: ", sum([p.numel() for p in args.model.parameters()]))
+            
+            
         elif model_str == "transformer":
             if args.dataset == "SLEEP":
                 args.model = TransAm(in_dim = 3, d_model=128, seq_len=100).to(args.device)
