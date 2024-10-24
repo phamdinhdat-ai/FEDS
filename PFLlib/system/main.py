@@ -184,7 +184,7 @@ def run(args):
                 print("total Parameters: ", sum([p.numel() for p in args.model.parameters()]))
                 
             elif args.dataset  == "PAMAP2":
-                args.model = HARCNNBN(9, dim_hidden=3712, num_classes=args.num_classes, conv_kernel_size=(1, 9)).to(args.device)
+                args.model = HARCNN(9, dim_hidden=3712, num_classes=args.num_classes, conv_kernel_size=(1, 9)).to(args.device)
                 print("total Parameters: ", sum([p.numel() for p in args.model.parameters()]))
             
         elif model_str == 'harcnnbn':
