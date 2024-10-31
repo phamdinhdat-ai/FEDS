@@ -1,20 +1,3 @@
-# PFLlib: Personalized Federated Learning Algorithm Library
-# Copyright (C) 2021  Jianqing Zhang
-
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-
 import copy
 import random
 import time
@@ -22,6 +5,7 @@ import numpy as np
 from flcore.clients.clientkdx import clientKDX
 from flcore.servers.serverbase import Server
 from threading import Thread
+import torch
 
 
 class FedKDX(Server):
@@ -113,6 +97,7 @@ class FedKDX(Server):
 
         self.uploaded_ids = []
         self.uploaded_models = []
+        self.mean_client = {}
         for client in active_clients:
             try:
                 client_time_cost = client.train_time_cost['total_cost'] / client.train_time_cost['num_rounds'] + \
@@ -122,20 +107,41 @@ class FedKDX(Server):
             if client_time_cost <= self.time_threthold:
                 self.uploaded_ids.append(client.id)
                 # recover
+                
                 for k in client.compressed_param.keys():
+                    
+                    
+                    
                     if len(client.compressed_param[k]) == 3:
                         # use np.matmul to support high-dimensional CNN param
                         client.compressed_param[k] = np.matmul(
                             client.compressed_param[k][0] * client.compressed_param[k][1][..., None, :], 
                                 client.compressed_param[k][2])
-            
+                        
+                        if len(self.mean_client) != len(client.compressed_param): 
+                            self.mean_client[k] = client.compressed_param[k]
+                        else: 
+                            self.mean_client[k]  += client.compressed_param[k]
+                    
+                    
+                    else: 
+                        if len(self.mean_client) != len(client.compressed_param): 
+                            self.mean_client[k] = client.compressed_param[k]
+                        else: 
+                            self.mean_client[k]  += client.compressed_param[k]
                 self.uploaded_models.append(client.compressed_param)
-
+            
+            # for k, param in self.mean_client.items():
+            #         # print(param)
+            #         self.mean_client[k] = param / len(self.uploaded_models)
+            
     def aggregate_parameters(self):
         assert (len(self.uploaded_models) > 0)
 
         self.global_model = copy.deepcopy(self.uploaded_models[0])
-        for k in self.global_model.keys():
+        # print(self.global_model.keys())
+        
+        for k in self.global_model.keys(): # not good 
             self.global_model[k] = np.zeros_like(self.global_model[k])
             
         # use 1/len(self.uploaded_models) as the weight for privacy and fairness
@@ -143,16 +149,54 @@ class FedKDX(Server):
             self.add_parameters(1/len(self.uploaded_models), client_model)
 
     def add_parameters(self, w, client_model):
-        for server_k, client_k in zip(self.global_model.keys(), client_model.keys()):
-            self.global_model[server_k] += client_model[client_k] * w
+        # self.add_bn_weight()
+        for server_k, client_k, mean_k in zip(self.global_model.keys(), client_model.keys(), self.mean_client.keys()):
+            
+            # if 'bn' in client_k and 'weight' in client_k: 
+                # print(client_k)
+                # print(client_model[client_k].shape)
+            self.global_model[server_k]  += 0.5 * (self.mean_client[mean_k] * w - client_model[client_k])
+            # self.global_model[server_k] += client_model[client_k] * w # oringinal update
+    
+    def add_bn_weight(self):
+        for client_model in self.uploaded_models:
+            mean_c = None
+            mean_s = None 
+            var_c  = None 
+            var_s  = None 
+            for server_k, client_k in zip(self.global_model.keys(), client_model.keys()):
+                
+                if 'bn' in client_k and 'weight' in client_k: 
+                    mean_c = client_model[client_k]
+                    mean_s = self.global_model[server_k]
+                    print(server_k)
+                    
+                    
+                if 'bn' in client_k and 'bias' in client_k:
+                    var_c = client_model[client_k]
+                    var_s = self.global_model[server_k]
+                    print(server_k)
+                
+                
+                if mean_c is not None and mean_s is not None and  var_c is not None and  var_s is not None :
+                    print("Mean Clients: ", mean_c[:5])
+                    print("Mean Server: ", mean_s[:5])
+                    print("Var Client: ", var_c[:5])
+                    print("Var Server: ", var_s[:5])
+                    
+        
+        
+    
     
     def decomposition(self):
         self.compressed_param = {}
         for name, param_cpu in self.global_model.items():
             # refer to https://github.com/wuch15/FedKD/blob/main/run.py#L187
+            
             if param_cpu.shape[0]>1 and len(param_cpu.shape)>1 and 'embeddings' not in name:
                 u, sigma, v = np.linalg.svd(param_cpu, full_matrices=False)
                 # support high-dimensional CNN param
+                # print("Layer's named: ", name)
                 if len(u.shape)==4:
                     u = np.transpose(u, (2, 3, 0, 1))
                     sigma = np.transpose(sigma, (2, 0, 1))
