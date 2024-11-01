@@ -119,16 +119,18 @@ class clientKDX(Client):
                 ## add new contrastive loss and relative loss
                 # contrastive loss 
                 
-                ct_local = self.contrastive_loss(zi, zj)
-                ct_global = self.contrastive_loss(zj, zrd)
+                ct_local = self.contrastive_loss(rep, rep_au)
+                ct_global = self.contrastive_loss(rep_g, rep_au_g)
+                # ct_local = self.contrastive_loss(zi, zj)
+                # ct_global = self.contrastive_loss(zj, zrd)
 
                 # relative loss 
-                rl_local = self.rkd_loss(rep, rep_au, rep_rd)
+                rl_local = self.rkd_loss(zi, zj, zrd)
                 
-                rl_global = self.rkd_loss(rep, rep_au_g,  rep_rd_g)
+                rl_global = self.rkd_loss(output_g, output_au,  output_rd_g)
                 
                 loss_ct = ct_local + ct_global
-                loss_rl = rl_local + rl_global
+                loss_rl = rl_local 
                 
                 
                 
@@ -256,11 +258,11 @@ class clientKDX(Client):
                 ## add new contrastive loss and relative loss
                 # contrastive loss 
                 
-                ct_local = self.contrastive_loss(zi, zj)
-                ct_global = self.contrastive_loss(zj, zrd)
+                ct_local = self.contrastive_loss(rep, rep_au)
+                ct_global = self.contrastive_loss(rep_g, rep_au_g)
 
                 # # relative loss 
-                rl_local = self.rkd_loss(rep, rep_au, rep_rd)
+                rl_local = self.rkd_loss(output, output_au, output_rd)
                 
                 # rl_global = self.rkd_loss(rep, rep_au_g,  rep_rd_g)
                 
@@ -274,7 +276,7 @@ class clientKDX(Client):
                 L_d = self.KL(F.log_softmax(output, dim=1), F.softmax(output_g, dim=1)) / (CE_loss + CE_loss_g)
                 # L_h = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
 
-                loss = CE_loss     + 0.1 * loss_ct + 0.1*loss_rl + L_d
+                loss = CE_loss + 0.1 * loss_ct + 0.1*loss_rl + L_d
                 train_num += y.shape[0]
                 losses += loss.item() * y.shape[0]
 
@@ -286,6 +288,8 @@ class clientKDX(Client):
     def decomposition(self):
         self.compressed_param = {}
         for name, param in self.global_model.named_parameters():
+            # print("Name Layers: ", name)
+            
             param_cpu = param.detach().cpu().numpy()
             # refer to https://github.com/wuch15/FedKD/blob/main/run.py#L187
             if param_cpu.shape[0]>1 and len(param_cpu.shape)>1 and 'embeddings' not in name:
@@ -297,6 +301,8 @@ class clientKDX(Client):
                     u = np.transpose(u, (2, 3, 0, 1))
                     sigma = np.transpose(sigma, (2, 0, 1))
                     v = np.transpose(v, (2, 3, 0, 1))
+                    # print("SVD Layers: ", name)
+                    
                     # print("U: ", u.shape)
                     # print("Sigma: ", sigma.shape)
                     # print("V: ", v.shape)

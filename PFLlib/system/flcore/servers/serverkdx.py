@@ -155,34 +155,34 @@ class FedKDX(Server):
             # if 'bn' in client_k and 'weight' in client_k: 
                 # print(client_k)
                 # print(client_model[client_k].shape)
-            self.global_model[server_k]  += 0.5 * (self.mean_client[mean_k] * w - client_model[client_k])
-            # self.global_model[server_k] += client_model[client_k] * w # oringinal update
+            # self.global_model[server_k]  += 0.5 * (self.mean_client[mean_k] * w - client_model[client_k])
+            self.global_model[server_k] += client_model[client_k] * w # oringinal update
     
-    def add_bn_weight(self):
-        for client_model in self.uploaded_models:
-            mean_c = None
-            mean_s = None 
-            var_c  = None 
-            var_s  = None 
-            for server_k, client_k in zip(self.global_model.keys(), client_model.keys()):
+    # def add_bn_weight(self):
+    #     for client_model in self.uploaded_models:
+    #         mean_c = None
+    #         mean_s = None 
+    #         var_c  = None 
+    #         var_s  = None 
+    #         for server_k, client_k in zip(self.global_model.keys(), client_model.keys()):
                 
-                if 'bn' in client_k and 'weight' in client_k: 
-                    mean_c = client_model[client_k]
-                    mean_s = self.global_model[server_k]
-                    print(server_k)
+    #             if 'bn' in client_k and 'weight' in client_k: 
+    #                 mean_c = client_model[client_k]
+    #                 mean_s = self.global_model[server_k]
+    #                 print(server_k)
                     
                     
-                if 'bn' in client_k and 'bias' in client_k:
-                    var_c = client_model[client_k]
-                    var_s = self.global_model[server_k]
-                    print(server_k)
+    #             if 'bn' in client_k and 'bias' in client_k:
+    #                 var_c = client_model[client_k]
+    #                 var_s = self.global_model[server_k]
+    #                 print(server_k)
                 
                 
-                if mean_c is not None and mean_s is not None and  var_c is not None and  var_s is not None :
-                    print("Mean Clients: ", mean_c[:5])
-                    print("Mean Server: ", mean_s[:5])
-                    print("Var Client: ", var_c[:5])
-                    print("Var Server: ", var_s[:5])
+    #             if mean_c is not None and mean_s is not None and  var_c is not None and  var_s is not None :
+    #                 print("Mean Clients: ", mean_c[:5])
+    #                 print("Mean Server: ", mean_s[:5])
+    #                 print("Var Client: ", var_c[:5])
+    #                 print("Var Server: ", var_s[:5])
                     
         
         

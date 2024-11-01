@@ -199,7 +199,7 @@ def run(args):
             
             
             elif args.dataset  == "SLEEP":
-                args.model = HARCNN(3, dim_hidden=1472, num_classes=args.num_classes, conv_kernel_size=(1, 3)).to(args.device)
+                args.model = HARCNNBN(3, dim_hidden=1472, num_classes=args.num_classes, conv_kernel_size=(1, 3)).to(args.device)
                 print("total Parameters: ", sum([p.numel() for p in args.model.parameters()]))
             
             
