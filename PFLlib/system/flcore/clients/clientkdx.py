@@ -69,6 +69,7 @@ class clientKDX(Client):
             loss_ct_e  = 0 
             loss_rl_e = 0 
             loss_g_e = 0
+            loss_nkd_e = 0 
 
 
             for i, (x, y) in enumerate(trainloader):
@@ -79,12 +80,12 @@ class clientKDX(Client):
                     x_au = augment_data(x_)
                     x_au = x_au.to(self.device, dtype = x.dtype)
                     x = x.to(self.device)
-                try: 
-                    random_x, _  = next(random_dataloader)
-                except:
-                    random_dataloader  =  iter(random_loader)
-                    random_x, _ = next(random_dataloader)
-                random_x = random_x.to(self.device)
+                # try: 
+                #     random_x, _  = next(random_dataloader)
+                # except:
+                #     random_dataloader  =  iter(random_loader)
+                #     random_x, _ = next(random_dataloader)
+                # random_x = random_x.to(self.device)
 
                 y = y.to(self.device)
                 if self.train_slow:
@@ -97,40 +98,92 @@ class clientKDX(Client):
                 # representative projection of local model
                 rep = self.model.base(x)
                 rep_au = self.model.base(x_au)
-                rep_rd = self.model.base(random_x)
+                # rep_rd = self.model.base(random_x)
                 # representative projection of global model
-                with torch.no_grad():
-                    rep_g = self.global_model.base(x)
-                    rep_au_g = self.global_model.base(x_au)
-                    rep_rd_g = self.global_model.base(random_x)
+                # with torch.no_grad():
+                rep_g = self.global_model.base(x)
+                rep_au_g = self.global_model.base(x_au)
+                    # rep_rd_g = self.global_model.base(random_x)
                 # local prediction
                 
                 output = self.model.head(rep)
-                output_au = self.model.head(rep_au)
-                output_rd = self.model.head(rep_rd)
+                # output_au = self.model.head(rep_au)
+                # output_rd = self.model.head(rep_rd)
                 # global prediction 
-                output_rd_g = self.global_model.head(rep_rd_g)
+                # output_rd_g = self.global_model.head(rep_rd_g)
                 output_g = self.global_model.head(rep_g)
                 
-                zi = self.g_w(output)
-                zj = self.g_w(output_au)
-                zrd = self.g_w(output_rd)
+                # zi = self.g_w(output)
+                # zj = self.g_w(output_au)
+                # zrd = self.g_w(output_rd)
                 
                 ## add new contrastive loss and relative loss
                 # contrastive loss 
+                # N, c = logit_s.shape
+                # s_i = self.log_softmax(logit_s)
+                # t_i = F.softmax(logit_t, dim=1)
+                # # N*1
+                # s_t = torch.gather(s_i, 1, label)
+                # t_t = torch.gather(t_i, 1, label).detach()
+
+                # loss_t = - (t_t * s_t).mean()
+
+                # mask = torch.ones_like(logit_s).scatter_(1, label, 0).bool()
+                # logit_s = logit_s[mask].reshape(N, -1)
+                # logit_t = logit_t[mask].reshape(N, -1)
+                
+                # # N*class
+                # S_i = self.log_softmax(logit_s/self.temp)
+                # T_i = F.softmax(logit_t/self.temp, dim=1) 
+                
+                #normalized KD
+                N, c = output.shape 
+                s_i = F.log_softmax(output)
+                t_i = F.softmax(output_g, dim=1)
+                
+                if len(y.size()) > 1:
+                    label = torch.max(y, dim=1, keepdim=True)[1]
+                else:
+                    label = y.view(len(y), 1)
+                # print("S_i: ",s_i.shape)
+                # print("T_i: ",t_i.shape)
+                # print("label: ", y.shape)
+                
+                
+                s_t = torch.gather(s_i, 1, label)
+                t_t = torch.gather(t_i, 1, label)
+                loss_t = -(t_t * s_t).mean()
+                
+                mask = torch.ones_like(output).scatter_(1, label, 0).bool()
+                logit_s = output[mask].reshape(N, -1) # set local as student
+                logit_t = output_g[mask].reshape(N, -1) # set global as teacher
+                
+                # N*class
+                S_i = F.log_softmax(logit_s/1)
+                T_i = F.softmax(logit_t/1, dim=1) 
+                
+                loss_non =  (T_i * S_i).sum(dim=1).mean()
+                loss_non = - 1.5 * (1**2) * loss_non
+                
+                loss_nkd = loss_t + loss_non
+            
                 
                 ct_local = self.contrastive_loss(rep, rep_au)
                 ct_global = self.contrastive_loss(rep_g, rep_au_g)
                 # ct_local = self.contrastive_loss(zi, zj)
                 # ct_global = self.contrastive_loss(zj, zrd)
 
-                # relative loss 
-                rl_local = self.rkd_loss(zi, zj, zrd)
+                # # relative loss 
+                # rl_local = self.rkd_loss(zi, zj, zrd)
                 
-                rl_global = self.rkd_loss(output_g, output_au,  output_rd_g)
+                # rl_global = self.rkd_loss(output_g, output_au,  output_rd_g)
+                
+                
+                
+                
                 
                 loss_ct = ct_local + ct_global
-                loss_rl = rl_local 
+                # loss_rl = rl_local 
                 
                 
                 
@@ -139,7 +192,7 @@ class clientKDX(Client):
                 CE_loss_g = self.loss(output_g, y)
                 
                 L_d = self.KL(F.log_softmax(output, dim=1), F.softmax(output_g, dim=1)) / (CE_loss + CE_loss_g)
-                # L_d_g = self.KL(F.log_softmax(output_g, dim=1), F.softmax(output, dim=1)) / (CE_loss + CE_loss_g)
+                L_d_g = self.KL(F.log_softmax(output_g, dim=1), F.softmax(output, dim=1)) / (CE_loss + CE_loss_g)
                 # L_h = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
                 # L_h_g = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
 
@@ -148,12 +201,12 @@ class clientKDX(Client):
                 # loss = CE_loss + L_d + L_h 
                 # loss_g = CE_loss_g + L_d_g + L_h_g
 
-                loss = CE_loss + 0.1 * loss_ct + 0.1*loss_rl + L_d
-                loss_g = CE_loss_g + ct_global + rl_global
+                loss = CE_loss + loss_ct + loss_nkd + L_d
+                loss_g = CE_loss_g + ct_global + loss_nkd + L_d_g
 
                 
                 loss.backward(retain_graph=True)
-                # loss_g.backward()
+                loss_g.backward()
                 # prevent divergency on specifical tasks
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 10)
                 torch.nn.utils.clip_grad_norm_(self.global_model.parameters(), 10)
@@ -164,8 +217,9 @@ class clientKDX(Client):
                 loss_e += loss.item()
                 loss_g_e += loss_g.item()
                 loss_ct_e += loss_ct.item()
-                loss_rl_e += loss_rl.item()
-            print(f"Epoch: {epoch}|  CT loss: {round(loss_ct_e/len(trainloader),4)}| RL loss: {round(loss_rl_e/len(trainloader),4)} ")
+                # loss_rl_e += loss_rl.item()
+                loss_nkd_e += loss_nkd.item()
+            print(f"Epoch: {epoch}|  CT loss: {round(loss_ct_e/len(trainloader),4)} | NKD Loss: {round(loss_nkd_e/len(trainloader),4)}")
             print(f"Epoch: {epoch}|  Loss:  {round(loss_e/len(trainloader), 4)} |Global loss: {round(loss_g_e/len(trainloader), 4)}| Local CE loss: {round(CE_loss.item(), 4)}  | Global CE loss: {round(CE_loss_g.item(), 4)}")
             
         # self.model.cpu()
@@ -237,23 +291,23 @@ class clientKDX(Client):
                 with torch.no_grad():
                     rep_g = self.global_model.base(x)
                     rep_au_g = self.global_model.base(x_au)
-                    rep_rd_g = self.global_model.base(random_x)
+                    # rep_rd_g = self.global_model.base(random_x)
                 # # local prediction
                 
                 output = self.model.head(rep)
                 output_au = self.model.head(rep_au)
                 output_rd = self.model.head(rep_rd)
                 # global prediction 
-                output_rd_g = self.global_model.head(rep_rd_g)
+                # output_rd_g = self.global_model.head(rep_rd_g)
                 output_g = self.global_model.head(rep_g)
                 
                 
                 ### add new contrastive loss and relative loss
                 #contrastive loss 
                 
-                zi = self.g_w(output)
-                zj = self.g_w(output_au)
-                zrd = self.g_w(output_rd)
+                # zi = self.g_w(output)
+                # zj = self.g_w(output_au)
+                # zrd = self.g_w(output_rd)
                 
                 ## add new contrastive loss and relative loss
                 # contrastive loss 

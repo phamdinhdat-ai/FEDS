@@ -8,15 +8,25 @@ import numpy as np
 from tqdm import tqdm
 import random
 import torch 
-# clipping1 = ClippingDistortion(min_percentile_threshold=2, max_percentile_threshold=4, p=1.0,)
-clipping = ClippingDistortion(min_percentile_threshold=0, max_percentile_threshold=1, p=0.3)
-gain = Gain(min_gain_in_db=0, max_gain_in_db=0.2, p=0.3)
+clipping = ClippingDistortion(min_percentile_threshold=0, max_percentile_threshold=1, p=0.2)
+gain = Gain(min_gain_in_db=0, max_gain_in_db=0.01, p=0.2)
 # gain2 = Gain(min_gain_in_db=-3.0, max_gain_in_db=-2.1, p=1.0)
-gaintransition = GainTransition(min_gain_in_db=1.1, max_gain_in_db=2.0, p=1.0)
-gaussnoise = AddGaussianNoise(min_amplitude=0.1, max_amplitude=0.2, p=0.3)
-timestretch = TimeStretch(min_rate=0.8, max_rate=1.25, p=0.5)
-pitchshift = PitchShift(min_semitones=-4, max_semitones=4, p=0.5)
-reverse = Reverse(p=1.0)
+gaintransition = GainTransition(min_gain_in_db=0.01, max_gain_in_db=0.1, p=0.2)
+gaussnoise = AddGaussianNoise(min_amplitude=0.01, max_amplitude=0.05, p=0.2)
+timestretch = TimeStretch(min_rate=0.8, max_rate=1.25, p=0.2)
+pitchshift = PitchShift(min_semitones=-4, max_semitones=4, p=0.2)
+reverse = Reverse(p=0.2)
+
+# clipping1 = ClippingDistortion(min_percentile_threshold=2, max_percentile_threshold=4, p=1.0,)
+# # clipping1 = ClippingDistortion(min_percentile_threshold=2, max_percentile_threshold=4, p=1.0,)
+# clipping = ClippingDistortion(min_percentile_threshold=1, max_percentile_threshold=2, p=1.0)
+# gain = Gain(min_gain_in_db=-2.0, max_gain_in_db=-1.1, p=1.0)
+# # gain2 = Gain(min_gain_in_db=-3.0, max_gain_in_db=-2.1, p=1.0)
+# gaintransition = GainTransition(min_gain_in_db=1.1, max_gain_in_db=2.0, p=1.0)
+# gaussnoise = AddGaussianNoise(min_amplitude=0.1, max_amplitude=1.2, p=0.5)
+# timestretch = TimeStretch(min_rate=0.8, max_rate=1.25, p=0.5)
+# pitchshift = PitchShift(min_semitones=-4, max_semitones=4, p=0.5)
+# reverse = Reverse(p=1.0)
 
 augments = [
     clipping,

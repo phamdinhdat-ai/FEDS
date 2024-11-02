@@ -155,8 +155,8 @@ class FedKDX(Server):
             # if 'bn' in client_k and 'weight' in client_k: 
                 # print(client_k)
                 # print(client_model[client_k].shape)
-            # self.global_model[server_k]  += 0.5 * (self.mean_client[mean_k] * w - client_model[client_k])
-            self.global_model[server_k] += client_model[client_k] * w # oringinal update
+            self.global_model[server_k]  += 0.5 * (self.mean_client[mean_k] * w - client_model[client_k])
+            # self.global_model[server_k] += client_model[client_k] * w # oringinal update
     
     # def add_bn_weight(self):
     #     for client_model in self.uploaded_models:
