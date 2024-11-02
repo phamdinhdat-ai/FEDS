@@ -97,12 +97,12 @@ class clientKDX(Client):
                 
                 # representative projection of local model
                 rep = self.model.base(x)
-                rep_au = self.model.base(x_au)
+                # rep_au = self.model.base(x_au)
                 # rep_rd = self.model.base(random_x)
                 # representative projection of global model
                 # with torch.no_grad():
                 rep_g = self.global_model.base(x)
-                rep_au_g = self.global_model.base(x_au)
+                # rep_au_g = self.global_model.base(x_au)
                     # rep_rd_g = self.global_model.base(random_x)
                 # local prediction
                 
@@ -168,8 +168,9 @@ class clientKDX(Client):
                 loss_nkd = loss_t + loss_non
             
                 
-                ct_local = self.contrastive_loss(rep, rep_au)
-                ct_global = self.contrastive_loss(rep_g, rep_au_g)
+                # ct_local = self.contrastive_loss(rep, rep_au)
+                
+                # ct_global = self.contrastive_loss(rep_g, rep_au_g)
                 # ct_local = self.contrastive_loss(zi, zj)
                 # ct_global = self.contrastive_loss(zj, zrd)
 
@@ -182,7 +183,7 @@ class clientKDX(Client):
                 
                 
                 
-                loss_ct = ct_local + ct_global
+                loss_ct = self.contrastive_loss(rep, rep_g)
                 # loss_rl = rl_local 
                 
                 
@@ -202,7 +203,7 @@ class clientKDX(Client):
                 # loss_g = CE_loss_g + L_d_g + L_h_g
 
                 loss = CE_loss + loss_ct + loss_nkd + L_d
-                loss_g = CE_loss_g + ct_global + loss_nkd + L_d_g
+                loss_g = CE_loss_g  + loss_ct +  loss_nkd + L_d_g
 
                 
                 loss.backward(retain_graph=True)
