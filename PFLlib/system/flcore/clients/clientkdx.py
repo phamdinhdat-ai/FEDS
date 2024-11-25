@@ -5,7 +5,7 @@ import numpy as np
 import time
 import torch.nn.functional as F
 from flcore.clients.clientbase import Client
-from flcore.clients.helper_function import ContrastiveLoss , HardTripletLoss
+from flcore.clients.helper_function import ContrastiveLoss 
 # import scipy.linalg as la
 # from flcore.clients.helper_function import 
 # from scipy.sparse.linalg import svds
@@ -33,7 +33,7 @@ class clientKDX(Client):
         self.KL = nn.KLDivLoss()
         self.MSE = nn.MSELoss()
         self.contras_loss = ContrastiveLoss(temperature=0.7)
-        self.triplet_loss = HardTripletLoss(margin=0.5)
+        # self.triplet_loss = HardTripletLoss(margin=0.5)
         self.compressed_param = {}
         self.energy = None
         self.gamma = 0.7
