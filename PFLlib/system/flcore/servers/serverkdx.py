@@ -1,3 +1,4 @@
+
 import copy
 import random
 import time
@@ -6,8 +7,9 @@ from flcore.clients.clientkdx import clientKDX
 from flcore.servers.serverbase import Server
 from threading import Thread
 import torch
-
-
+# import scipy.linalg as la
+# from flcore.clients.helper_function import robust_svd
+# from scipy.sparse.linalg import svds
 class FedKDX(Server):
     def __init__(self, args, times):
         super().__init__(args, times)
@@ -97,7 +99,6 @@ class FedKDX(Server):
 
         self.uploaded_ids = []
         self.uploaded_models = []
-        self.mean_client = {}
         for client in active_clients:
             try:
                 client_time_cost = client.train_time_cost['total_cost'] / client.train_time_cost['num_rounds'] + \
@@ -107,96 +108,93 @@ class FedKDX(Server):
             if client_time_cost <= self.time_threthold:
                 self.uploaded_ids.append(client.id)
                 # recover
-                
                 for k in client.compressed_param.keys():
-                    
-                    
-                    
                     if len(client.compressed_param[k]) == 3:
                         # use np.matmul to support high-dimensional CNN param
                         client.compressed_param[k] = np.matmul(
                             client.compressed_param[k][0] * client.compressed_param[k][1][..., None, :], 
                                 client.compressed_param[k][2])
-                        
-                        if len(self.mean_client) != len(client.compressed_param): 
-                            self.mean_client[k] = client.compressed_param[k]
-                        else: 
-                            self.mean_client[k]  += client.compressed_param[k]
-                    
-                    
-                    else: 
-                        if len(self.mean_client) != len(client.compressed_param): 
-                            self.mean_client[k] = client.compressed_param[k]
-                        else: 
-                            self.mean_client[k]  += client.compressed_param[k]
+            
                 self.uploaded_models.append(client.compressed_param)
-            
-            # for k, param in self.mean_client.items():
-            #         # print(param)
-            #         self.mean_client[k] = param / len(self.uploaded_models)
-            
+
     def aggregate_parameters(self):
         assert (len(self.uploaded_models) > 0)
 
         self.global_model = copy.deepcopy(self.uploaded_models[0])
-        # print(self.global_model.keys())
-        
-        for k in self.global_model.keys(): # not good 
+        for k in self.global_model.keys():
             self.global_model[k] = np.zeros_like(self.global_model[k])
             
         # use 1/len(self.uploaded_models) as the weight for privacy and fairness
         for client_model in self.uploaded_models:
             self.add_parameters(1/len(self.uploaded_models), client_model)
-
+            # self.add_parameters_v2(1/len(self.uploaded_models), client_model)
+            # self.ties_merge(1/len(self.uploaded_models), client_model)
     def add_parameters(self, w, client_model):
-        # self.add_bn_weight()
-        for server_k, client_k, mean_k in zip(self.global_model.keys(), client_model.keys(), self.mean_client.keys()):
+        for server_k, client_k in zip(self.global_model.keys(), client_model.keys()):
+            self.global_model[server_k] += client_model[client_k] * w
+    
+    def add_parameters_v2(self, w, client_model):
+        for server_k, client_k in zip(self.global_model.keys(), client_model.keys()):
+            # if len(client_model[client_k]) == 3:
+            #     # use np.matmul to support high-dimensional CNN param
+            #     self.global_model[server_k] += np.matmul(client_model[client_k][0] * client_model[client_k][1][..., None, :], 
+            #         client_model[client_k][2]) * w
+            # else:
+            #usinng DARE to arrgegate the parameters as model merging
+            delta = client_model[client_k] - self.global_model[server_k]
+            #sampling m_t from bernoulli distribution
             
-            # if 'bn' in client_k and 'weight' in client_k: 
-                # print(client_k)
-                # print(client_model[client_k].shape)
-            self.global_model[server_k]  += 0.5 * (self.mean_client[mean_k] * w - client_model[client_k])
-            # self.global_model[server_k] += client_model[client_k] * w # oringinal update
-    
-    # def add_bn_weight(self):
-    #     for client_model in self.uploaded_models:
-    #         mean_c = None
-    #         mean_s = None 
-    #         var_c  = None 
-    #         var_s  = None 
-    #         for server_k, client_k in zip(self.global_model.keys(), client_model.keys()):
-                
-    #             if 'bn' in client_k and 'weight' in client_k: 
-    #                 mean_c = client_model[client_k]
-    #                 mean_s = self.global_model[server_k]
-    #                 print(server_k)
-                    
-                    
-    #             if 'bn' in client_k and 'bias' in client_k:
-    #                 var_c = client_model[client_k]
-    #                 var_s = self.global_model[server_k]
-    #                 print(server_k)
-                
-                
-    #             if mean_c is not None and mean_s is not None and  var_c is not None and  var_s is not None :
-    #                 print("Mean Clients: ", mean_c[:5])
-    #                 print("Mean Server: ", mean_s[:5])
-    #                 print("Var Client: ", var_c[:5])
-    #                 print("Var Server: ", var_s[:5])
-                    
+            m_t = np.random.binomial(1, w, size=delta.shape).astype(np.float32)
+            #delta_t 
+            delta_t = delta * (1-m_t)
+            
+            delta_hat = delta_t/(1 - w)
+            #update global model
+            self.global_model[server_k]  = self.global_model[server_k] + delta_hat
+            
+            # self.global_model[server_k] += client_model[client_k] * w
+          
+          
+    def ties_merge(self, w, client_model): # SVD not convergence
         
-        
-    
-    
+        for server_k, client_k in zip(self.global_model.keys(), client_model.keys()):
+                  
+            #task vectors
+            T = client_model[client_k] - self.global_model[server_k]
+            #trim redundant parameters 
+            
+            #select top-k parameters
+            flatten_T = T.flatten()
+            k = int(w * len(flatten_T))
+            #sort the parameters
+            sorted_T = np.sort(flatten_T)
+            # get top-k parameters
+            threshold = sorted_T[-k]
+            #trim the parameters
+            T[T<threshold] = 0
+            #election of the parameters
+            gamma_t = np.sign(T)
+            
+            u_t = np.abs(T)
+            #update the global model
+            self.global_model[server_k] = self.global_model[server_k] + 0.9*gamma_t * u_t
+            
+            
+            
+            
+            
+            
+                
     def decomposition(self):
         self.compressed_param = {}
         for name, param_cpu in self.global_model.items():
             # refer to https://github.com/wuch15/FedKD/blob/main/run.py#L187
-            
             if param_cpu.shape[0]>1 and len(param_cpu.shape)>1 and 'embeddings' not in name:
                 u, sigma, v = np.linalg.svd(param_cpu, full_matrices=False)
+                # u, sigma, v = svds(param_cpu, k=param_cpu.shape[0]//2)
+                # u, sigma, v = la.svd(param_cpu, full_matrices=False)
+                # u, sigma, v = robust_svd(param_cpu)
                 # support high-dimensional CNN param
-                # print("Layer's named: ", name)
                 if len(u.shape)==4:
                     u = np.transpose(u, (2, 3, 0, 1))
                     sigma = np.transpose(sigma, (2, 0, 1))
