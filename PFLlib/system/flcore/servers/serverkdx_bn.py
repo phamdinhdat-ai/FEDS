@@ -1,20 +1,36 @@
+# PFLlib: Personalized Federated Learning Algorithm Library
+# Copyright (C) 2021  Jianqing Zhang
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 import copy
 import random
 import time
 import numpy as np
-from flcore.clients.clientkd import clientKD
+from flcore.clients.clientkdx import clientKDX
 from flcore.servers.serverbase import Server
 from threading import Thread
 
 
-class FedKD(Server):
+class FedKDXBN(Server):
     def __init__(self, args, times):
         super().__init__(args, times)
 
         # select slow clients
         self.set_slow_clients()
-        self.set_clients(clientKD)
+        self.set_clients(clientKDX)
 
         print(f"\nJoin ratio / total clients: {self.join_ratio} / {self.num_clients}")
         print("Finished creating server and clients.")
@@ -72,7 +88,7 @@ class FedKD(Server):
 
         if self.num_new_clients > 0:
             self.eval_new_clients = True
-            self.set_new_clients(clientKD)
+            self.set_new_clients(clientKDX)
             print(f"\n-------------Fine tuning round-------------")
             print("\nEvaluate new clients")
             self.evaluate()
@@ -117,8 +133,9 @@ class FedKD(Server):
 
     def aggregate_parameters(self):
         assert (len(self.uploaded_models) > 0)
-
+        
         self.global_model = copy.deepcopy(self.uploaded_models[0])
+        print(self.global_model.keys())
         for k in self.global_model.keys():
             self.global_model[k] = np.zeros_like(self.global_model[k])
             
@@ -136,6 +153,7 @@ class FedKD(Server):
             # refer to https://github.com/wuch15/FedKD/blob/main/run.py#L187
             if param_cpu.shape[0]>1 and len(param_cpu.shape)>1 and 'embeddings' not in name:
                 u, sigma, v = np.linalg.svd(param_cpu, full_matrices=False)
+                print("layer's name: ", name)
                 # support high-dimensional CNN param
                 if len(u.shape)==4:
                     u = np.transpose(u, (2, 3, 0, 1))

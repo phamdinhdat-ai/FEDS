@@ -1,19 +1,4 @@
 # PFLlib: Personalized Federated Learning Algorithm Library
-# Copyright (C) 2021  Jianqing Zhang
-
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 import torch
 import torch.nn.functional as F
@@ -92,25 +77,34 @@ class HARCNNBN(nn.Module):
 
     def forward(self, x):
         out = self.conv1(x)
+        # print(out.shape)
         out = self.conv2(out)
+        # print(out.shape)
+        
         out = torch.flatten(out, 1)
         out = self.fc(out)
         return out
-class SleepBN(nn.Module):
     
+    
+class SleepBN(nn.Module):
     def __init__(self, in_channels=9, dim_hidden=64*26, num_classes=6, conv_kernel_size=(1, 9), pool_kernel_size=(1, 2)):
         super(SleepBN, self).__init__()
         self.in_channels = in_channels
         self.dim_hidden = dim_hidden
         self.num_classes = num_classes
-        self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=conv_kernel_size)
-        self.bn1 = nn.BatchNorm2d(32)
-        self.relu1 = nn.ReLU()
-        self.maxpool1 = nn.MaxPool2d(kernel_size=pool_kernel_size, stride=2)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=conv_kernel_size)
-        self.bn2  = nn.BatchNorm2d(64)
-        self.relu2 = nn.ReLU()
-        self.maxpool2 = nn.MaxPool2d(kernel_size=pool_kernel_size, stride=2)
+        self.conv1_block = nn.Sequential()
+        self.conv1_block.add_module('conv1',nn.Conv2d(in_channels, 32, kernel_size=conv_kernel_size))
+        self.conv1_block.add_module('bn1',nn.BatchNorm2d(32))
+        self.conv1_block.add_module('relu1',nn.ReLU())
+        self.conv1_block.add_module('maxpool1',nn.MaxPool2d(kernel_size=pool_kernel_size, stride=2))
+        
+        
+        self.conv2_block = nn.Sequential()
+        self.conv2_block.add_module('conv2',nn.Conv2d(32, 64, kernel_size=conv_kernel_size))
+        self.conv2_block.add_module('bn2',nn.BatchNorm2d(64))
+        self.conv2_block.add_module('relu2',nn.ReLU())
+        self.conv2_block.add_module('maxpool2',nn.MaxPool2d(kernel_size=pool_kernel_size, stride=2))
+        
         self.fc = nn.Sequential(
             nn.Linear(dim_hidden, 256),
             nn.ReLU(), 
@@ -119,18 +113,54 @@ class SleepBN(nn.Module):
             nn.Linear(128, num_classes)
         )
     def forward(self,x):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu1(x)
-        x = self.bn1(x)
-        x = self.maxpool1(x)
-        x = self.conv2(x)
-        x = self.bn2(x)
-        x = self.relu2(x)
-        x = self.maxpool2(x)
+        
+        out = self.conv1_block(x)
+        # print(out.shape)
+        out = self.conv2_block(out)
+        # print(out.shape)
+        
         out = torch.flatten(out, 1)
-        out = self.fc(x)
+        out = self.fc(out)
         return out
+# class SleepBN(nn.Module):
+    
+#     def __init__(self, in_channels=9, dim_hidden=64*26, num_classes=6, conv_kernel_size=(1, 9), pool_kernel_size=(1, 2)):
+#         super(SleepBN, self).__init__()
+#         self.in_channels = in_channels
+#         self.dim_hidden = dim_hidden
+#         self.num_classes = num_classes
+#         self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=conv_kernel_size)
+#         self.bn1 = nn.BatchNorm2d(32)
+#         self.relu1 = nn.ReLU()
+#         self.maxpool1 = nn.MaxPool2d(kernel_size=pool_kernel_size, stride=2)
+#         self.conv2 = nn.Conv2d(32, 64, kernel_size=conv_kernel_size)
+#         self.bn2  = nn.BatchNorm2d(64)
+#         self.relu2 = nn.ReLU()
+#         self.maxpool2 = nn.MaxPool2d(kernel_size=pool_kernel_size, stride=2)
+#         self.fc = nn.Sequential(
+#             nn.Linear(dim_hidden, 256),
+#             nn.ReLU(), 
+#             nn.Linear(256, 128),
+#             nn.ReLU(), 
+#             nn.Linear(128, num_classes)
+#         )
+#     def forward(self,x):
+#         x = self.conv1(x)
+#         # print(x.shape)
+#         x = self.bn1(x)
+#         # print(x.shape)
+#         x = self.relu1(x)
+#         x = self.bn1(x)
+#         x = self.maxpool1(x)
+#         # print(x.shape)
+#         x = self.conv2(x)
+#         x = self.bn2(x)
+#         x = self.relu2(x)
+#         x = self.maxpool2(x)
+#         # print(x.shape)
+#         out = torch.flatten(x, 1)
+#         out = self.fc(x)
+#         return out
         
 class Digit5CNN(nn.Module):
     def __init__(self):

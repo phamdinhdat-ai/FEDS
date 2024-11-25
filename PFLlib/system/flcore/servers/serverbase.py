@@ -69,7 +69,8 @@ class Server(object):
         self.rs_test_f1_score = []
         self.rs_test_recall = []
         self.rs_train_loss = []
-
+        self.all_client_results = []
+        self.chosed_c_per_rount = []
         self.times = times
         self.eval_gap = args.eval_gap
         self.client_drop_rate = args.client_drop_rate
@@ -121,6 +122,7 @@ class Server(object):
         selected_clients = list(np.random.choice(self.clients, self.current_num_join_clients, replace=False))
         
         chosen_clients = [client.id for client in selected_clients]
+        self.chosed_c_per_rount.append(chosen_clients)
         print("Chosen Clients: ", chosen_clients)
         return selected_clients
 
@@ -207,6 +209,8 @@ class Server(object):
             algo = algo + "_" + self.goal + "_" + str(self.times) 
             file_path = result_path + "{}.h5".format(algo)
             other_file =  result_path + algo + "_" + str(self.args.T_start) + "_" + str(self.batch_size) + "_" + str(self.global_rounds) + "_" + str(self.num_clients) + "_" + time.strftime('%Y_%m_%d_%H_%M') +".pkl"
+            all_results_file =  result_path + algo + "_" + "all_resuls" + "_" + str(self.args.T_start) + "_" + str(self.batch_size) + "_" + str(self.global_rounds) + "_" + str(self.num_clients) + "_" + time.strftime('%Y_%m_%d_%H_%M') +".pkl"
+            
             print("File path: " + file_path)
 
             with h5py.File(file_path, 'w') as hf:
@@ -222,7 +226,8 @@ class Server(object):
                     "rs_test_rc" : self.rs_test_recall
                 }
                 pickle.dump(dict_rs, f)
-            
+            with open(all_results_file, 'wb') as f: 
+                pickle.dump(self.all_client_results, f)
 
     def save_item(self, item, item_name):
         if not os.path.exists(self.save_folder_name):
@@ -266,7 +271,7 @@ class Server(object):
         
         
     
-        
+        self.all_client_results.append([ids, num_samples, tot_correct, tot_auc, f1_values, rc_values]) 
         return ids, num_samples, tot_correct, tot_auc, f1_values, rc_values
 
     def train_metrics(self):
