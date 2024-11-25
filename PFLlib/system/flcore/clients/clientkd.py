@@ -51,7 +51,7 @@ class clientKD(Client):
             loss_g_e = 0 
             loss_h  = 0 
             loss_g_h = 0
-            
+            loss_nkd_e = 0
             for i, (x, y) in enumerate(trainloader):
                 if type(x) == type([]):
                     x[0] = x[0].to(self.device)
@@ -64,7 +64,38 @@ class clientKD(Client):
                 rep_g = self.global_model.base(x)
                 output = self.model.head(rep)
                 output_g = self.global_model.head(rep_g)
-
+                #normalized KD
+                N, c = output.shape 
+                s_i = F.log_softmax(output)
+                t_i = F.softmax(output_g, dim=1)
+                
+                if len(y.size()) > 1:
+                    label = torch.max(y, dim=1, keepdim=True)[1]
+                else:
+                    label = y.view(len(y), 1)
+                # print("S_i: ",s_i.shape)
+                # print("T_i: ",t_i.shape)
+                # print("label: ", y.shape)
+                
+                
+                s_t = torch.gather(s_i, 1, label)
+                t_t = torch.gather(t_i, 1, label)
+                loss_t = -(t_t * s_t).mean()
+                
+                mask = torch.ones_like(output).scatter_(1, label, 0).bool()
+                logit_s = output[mask].reshape(N, -1) # set local as student
+                logit_t = output_g[mask].reshape(N, -1) # set global as teacher
+                
+                # N*class
+                S_i = F.log_softmax(logit_s/1)
+                T_i = F.softmax(logit_t/1, dim=1) 
+                
+                loss_non =  (T_i * S_i).sum(dim=1).mean()
+                loss_non = - 1.5 * (1**2) * loss_non
+                
+                loss_nkd = loss_t + loss_non
+                
+                
                 CE_loss = self.loss(output, y)
                 CE_loss_g = self.loss(output_g, y)
                 
@@ -73,8 +104,8 @@ class clientKD(Client):
                 L_h = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
                 L_h_g = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
 
-                loss = CE_loss + L_d + L_h
-                loss_g = CE_loss_g + L_d_g + L_h_g
+                loss = CE_loss + L_d + L_h + loss_nkd
+                loss_g = CE_loss_g + L_d_g + L_h_g + loss_nkd
 
                 self.optimizer.zero_grad()
                 self.optimizer_g.zero_grad()
@@ -92,9 +123,9 @@ class clientKD(Client):
                 loss_g_e += loss_g.item()
                 loss_h +=  L_h.item()
                 loss_g_h += L_h_g.item()
+                loss_nkd_e += loss_nkd.item()
                 
-                
-                
+            print(f"Epoch: {epoch}|  NKD Loss: {round(loss_nkd_e/len(trainloader), 4)}")
             print(f"Epoch: {epoch}|  Loss:  {round(loss_e/len(trainloader), 4)} |Global loss: {round(loss_g_e/len(trainloader), 4)}| Local H loss: {round(loss_h/len(trainloader), 4)}  | Global H loss: {round(loss_g_h/len(trainloader), 4)}")
             
         # self.model.cpu()
@@ -142,12 +173,44 @@ class clientKD(Client):
                 output = self.model.head(rep)
                 output_g = self.global_model.head(rep_g)
 
+                #normalized KD
+                N, c = output.shape 
+                s_i = F.log_softmax(output)
+                t_i = F.softmax(output_g, dim=1)
+                
+                if len(y.size()) > 1:
+                    label = torch.max(y, dim=1, keepdim=True)[1]
+                else:
+                    label = y.view(len(y), 1)
+                # print("S_i: ",s_i.shape)
+                # print("T_i: ",t_i.shape)
+                # print("label: ", y.shape)
+                
+                
+                s_t = torch.gather(s_i, 1, label)
+                t_t = torch.gather(t_i, 1, label)
+                loss_t = -(t_t * s_t).mean()
+                
+                mask = torch.ones_like(output).scatter_(1, label, 0).bool()
+                logit_s = output[mask].reshape(N, -1) # set local as student
+                logit_t = output_g[mask].reshape(N, -1) # set global as teacher
+                
+                # N*class
+                S_i = F.log_softmax(logit_s/1)
+                T_i = F.softmax(logit_t/1, dim=1) 
+                
+                loss_non =  (T_i * S_i).sum(dim=1).mean()
+                loss_non = - 1.5 * (1**2) * loss_non
+                
+                loss_nkd = loss_t + loss_non
+                
+                
                 CE_loss = self.loss(output, y)
                 CE_loss_g = self.loss(output_g, y)
                 L_d = self.KL(F.log_softmax(output, dim=1), F.softmax(output_g, dim=1)) / (CE_loss + CE_loss_g)
                 L_h = self.MSE(rep, self.W_h(rep_g)) / (CE_loss + CE_loss_g)
 
-                loss = CE_loss + L_d + L_h
+                loss = CE_loss + L_d + L_h + loss_nkd
                 train_num += y.shape[0]
                 losses += loss.item() * y.shape[0]
 

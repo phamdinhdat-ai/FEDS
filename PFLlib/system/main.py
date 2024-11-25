@@ -520,12 +520,16 @@ if __name__ == "__main__":
     # FedDBE
     parser.add_argument('-mo', "--momentum", type=float, default=0.1)
     parser.add_argument('-klw', "--kl_weight", type=float, default=0.0)
+    parser.add_argument('-gam', "--gamma", type=float, default=0.1)
+    parser.add_argument('-opt', "--optimizer", type=str, default=None)
+    parser.add_argument('-lfn', "--loss_fn", type=str, default="ce")
+    
 
 
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = args.device_id
-
+ 
     if args.device == "cuda" and not torch.cuda.is_available():
         print("\ncuda is not avaiable.\n")
         args.device = "cpu"

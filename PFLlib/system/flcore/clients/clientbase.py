@@ -61,9 +61,29 @@ class Client(object):
         self.send_slow = kwargs['send_slow']
         self.train_time_cost = {'num_rounds': 0, 'total_cost': 0.0}
         self.send_time_cost = {'num_rounds': 0, 'total_cost': 0.0}
+        # set up loss function
 
-        self.loss = nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate)
+        if args.loss_fn == 'mse':
+            self.loss = nn.MSELoss()
+        elif args.loss_fn == 'bce':
+            self.loss = nn.BCELoss()
+        elif args.loss_fn == 'nll':
+            self.loss = nn.NLLLoss()
+        else:
+            self.loss = nn.CrossEntropyLoss()
+        #set up optimizer
+
+        if args.optimizer == 'adam':
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        elif args.optimizer == 'adagrad':
+            self.optimizer = torch.optim.Adagrad(self.model.parameters(), lr=self.learning_rate)
+        elif args.optimizer == 'rmsprop':
+            self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=self.learning_rate)
+        elif args.optimizer == 'adamw':
+            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.learning_rate)
+        else:
+            self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.learning_rate)
+            
         self.learning_rate_scheduler = torch.optim.lr_scheduler.ExponentialLR(
             optimizer=self.optimizer, 
             gamma=args.learning_rate_decay_gamma
